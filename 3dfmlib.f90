@@ -34,9 +34,10 @@ do m=1,n_vtypes
       read(10,*) vgrid(n,m)%dr0,vgrid(n,m)%dlat0,vgrid(n,m)%dlong0
       read(10,*) vgrid(n,m)%r0,vgrid(n,m)%lat0,vgrid(n,m)%long0
 
-      write(*,*) 'fang',vgrid(n,m)%nr,vgrid(n,m)%nlat,vgrid(n,m)%nlong
-      write(*,*) 'fang',vgrid(n,m)%dr0,vgrid(n,m)%dlat0,vgrid(n,m)%dlong0
-      write(*,*) 'fang',vgrid(n,m)%r0,vgrid(n,m)%lat0,vgrid(n,m)%long0
+      !tested by fang, can read correctly
+      !write(*,*) 'fang',vgrid(n,m)%nr,vgrid(n,m)%nlat,vgrid(n,m)%nlong
+      !write(*,*) 'fang',vgrid(n,m)%dr0,vgrid(n,m)%dlat0,vgrid(n,m)%dlong0
+      !write(*,*) 'fang',vgrid(n,m)%r0,vgrid(n,m)%lat0,vgrid(n,m)%long0
 
 
 ! initialize the grid

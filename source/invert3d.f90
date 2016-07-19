@@ -348,8 +348,9 @@ IF(pvi.EQ.1)THEN
                ENDDO
             ENDDO
          ELSE
-            DO k=1,nvnr(j,i)*nvnt(j,i),nvnp(j,i)
-               READ(10,*)
+            !DO k=1,nvnr(j,i)*nvnt(j,i),nvnp(j,i)
+            DO k=1,nvnr(j,i)*nvnt(j,i)*nvnp(j,i)
+               READ(10,*)idm1
             ENDDO
          ENDIF
       ENDDO
@@ -904,11 +905,12 @@ IF(pvi.EQ.1)THEN
    ENDIF
    OPEN(UNIT=10,FILE=vgfile,STATUS='unknown')
    WRITE(10,*)ni-1,nvgt
-   DO i=1,nvgt
+
       DO j=1,ni-1
-         WRITE(10,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
-         WRITE(10,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
-         WRITE(10,*)gor(j,i),got(j,i),gop(j,i)
+   DO i=1,nvgt
+    !     WRITE(10,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
+    !     WRITE(10,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
+    !     WRITE(10,*)gor(j,i),got(j,i),gop(j,i)
          idm1=0
          DO k=1,nvgi
             IF(idvg(k).EQ.j)THEN
@@ -926,6 +928,14 @@ IF(pvi.EQ.1)THEN
                ENDDO
             ENDDO
          ENDIF
+         enddo
+         enddo
+
+  DO i=1,nvgt
+     DO j=1,ni-1
+         WRITE(10,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
+         WRITE(10,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
+         WRITE(10,*)gor(j,i),got(j,i),gop(j,i)
          DO k=1,nvnr(j,i)
             DO l=1,nvnt(j,i)
                DO m=1,nvnp(j,i)
