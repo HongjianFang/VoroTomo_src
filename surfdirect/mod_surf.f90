@@ -91,7 +91,6 @@ module variable_def
         use mod_surf
         integer,parameter:: iflsph=1
         integer,parameter:: mode=1
-        real,parameter::earth_radius=6371.0
 	real goxd,gozd
 	real dvxd,dvzd
 	integer kmaxRc,kmaxRg,kmaxLc,kmaxLg,kmax

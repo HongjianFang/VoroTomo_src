@@ -1,11 +1,10 @@
       subroutine depthkernel(nx,ny,nz,vel,pvRc,sen_vsRc,sen_vpRc,sen_rhoRc, &
-                  iwave,igr,kmaxRc,tRc,depz,minthk,maxnx,maxny,maxnz2)
+                  iwave,igr,kmaxRc,tRc,depz,minthk)
         use omp_lib
         implicit none
         
         integer nx,ny,nz
-        integer maxnx,maxny,maxnz2
-        real vel(maxnx,maxny,maxnz2)
+        real vel(nx,ny,nz*2)
         real*8 sen_vpRc(ny*nx,kmaxRc,nz-1),sen_vsRc(ny*nx,kmaxRc,nz-1),sen_rhoRc(ny*nx,kmaxRc,nz-1)
 
         integer iwave,igr
@@ -135,6 +134,7 @@
     	enddo
 !$omp end do
 !$omp end parallel
+        print*,'finishing depth kernels'
 
              end subroutine depthkernel
 
@@ -285,9 +285,9 @@ sw=0
 IF(isx.lt.1.or.isx.gt.nnx)sw=1
 IF(isz.lt.1.or.isz.gt.nnz)sw=1
 IF(sw.eq.1)then
-   isx=90.0-isx*180.0/pi
-   isz=isz*180.0/pi
-   WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",isx,isz
+   scx=90.0-scx*180.0/pi
+   scz=scz*180.0/pi
+   WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",scx,scz
    WRITE(6,*)"TERMINATING PROGRAM!!!"
    STOP
 ENDIF
@@ -909,7 +909,8 @@ END MODULE traveltime
 subroutine CalSurfG(nx,ny,nz,vel,dsurf, &
               goxdf,gozdf,dvxdf,dvzdf,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
-              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrcf)
+              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrcf, &
+              ngrid1stop,ngrid2start,n_interfaces,numgrid2)
 USE globalp
 USE traveltime
 IMPLICIT NONE
@@ -988,7 +989,14 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        real row(nx*ny*nz*2)
 	real cbst1
         integer ii,jj,kk,nn,istep
-       integer nxf,nyf,nzf
+       integer nxf,nyf
+       integer ngrid1stop,ngrid2start
+       integer nparpi
+       integer numgrid2
+       integer n_interfaces
+       integer idx
+       real,parameter::ftol = 1.e-6
+
 gdx=5                                                                           
 gdz=5                                                                           
 asgr=1                                                                          
@@ -1003,9 +1011,10 @@ dvxd=dvxdf
 dvzd=dvzdf
 nxf=ny
 nyf=nx
-nzf=nz-2
 nvx=nxf-2
 nvz=nyf-2
+nparpi=nx*ny*nz
+
 ALLOCATE(velv(0:nvz+1,0:nvx+1), STAT=checkstat)
 IF(checkstat > 0)THEN
    WRITE(6,*)'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
@@ -1013,10 +1022,14 @@ ENDIF
 !
 ! Convert from degrees to radians
 !
-dvx=dvxd*pi/180.0
-dvz=dvzd*pi/180.0
-gox=(90.0-goxd)*pi/180.0
-goz=gozd*pi/180.0
+dvx=dvxd
+dvz=dvzd
+gox=goxd
+goz=gozd
+!dvx=dvxd*pi/180.0
+!dvz=dvzd*pi/180.0
+!gox=(90.0-goxd)*pi/180.0
+!goz=gozd*pi/180.0
 !
 ! Compute corresponding values for propagation grid.
 !
@@ -1146,12 +1159,13 @@ call gridder(velf)
       isx=INT((x-gox)/dnx)+1
       isz=INT((z-goz)/dnz)+1
       sw=0
+      !print*,isx,isz,gox,goz,dnx,dnz
       IF(isx.lt.1.or.isx.gt.nnx)sw=1
       IF(isz.lt.1.or.isz.gt.nnz)sw=1
       IF(sw.eq.1)then
-         isx=90.0-isx*180.0/pi
-         isz=isz*180.0/pi
-         WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",isx,isz
+         x=90.0-x*180.0/pi
+         z=z*180.0/pi
+         WRITE(6,*)"Source (in CalsurfG) lies outside bounds of model (lat,long)= ",x,z
          WRITE(6,*)"TERMINATING PROGRAM!!!"
          STOP
       ENDIF
@@ -1313,6 +1327,56 @@ dsurf(count1)=cbst1
 !
       CALL rpaths(x,z,fdm,rcxf(istep,srcnum,knum1(knumi)),rczf(istep,srcnum,knum1(knumi)))
       row=0
+        do jj=1,nx
+        do kk=1,ny
+        if (abs(fdm(jj-1,kk-1))>ftol) then
+        coe_rho=(1.6612-0.4721*2*vel(jj,ny-kk+1,2:nz)+ &
+        0.0671*3*vel(jj,ny-kk+1,2:nz)**2-0.0043*4*vel(jj,ny-kk+1,2:nz)**3+ &
+        0.000106*5*vel(jj,ny-kk+1,2:nz)**4)
+        row((jj-1)*ny*nz+(ny-kk)*nz+nz:(jj-1)*ny*nz+(ny-kk)*nz+2:-1)= &
+        (sen_rho((jj-1)*ny+kk,knum1(knumi),1:nz-1)*coe_rho(1:nz-1)+ &
+        sen_vp((jj-1)*ny+kk,knum1(knumi),1:nz-1))*fdm(jj-1,kk-1)
+        row(nparpi+(jj-1)*ny*nz+(ny-kk)*nz+nz:nparpi+(jj-1)*ny*nz+(ny-kk)*nz+2:-1) = &
+        sen_vs((jj-1)*ny+kk,knum1(knumi),1:nz-1)*fdm(jj-1,kk-1)
+        endif
+        enddo
+        enddo
+
+      write(34,*) count1,count(abs(row)>ftol)
+      write(35,*) dsurf(count1)
+      if ( n_interfaces == 2 ) then
+        do jj = 1,2*nparpi
+        if (abs(row(jj))>ftol) then
+        write(34,*) jj, row(jj)
+        endif
+        enddo
+      else
+        !something is wrong here, the idx is wrong...define two separate point for grid1 and grid2
+        do ii = 1,nx
+        do jj = 1,ny
+        do kk = 1,nz
+        idx =(ii-1)*ny*nz+(jj-1)*nx+kk
+        if (kk<=ngrid2start+1) then
+          if (abs(row(idx))>ftol)  write(34,*) numgrid1+idx, row(idx)
+        else
+          if (abs(row(idx))>ftol) write(34,*) (ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(idx)
+        endif
+        enddo
+        enddo
+        enddo
+        do ii = 1,nx
+        do jj = 1,ny
+        do kk = 1,nz
+        idx =(ii-1)*ny*nz+(jj-1)*nx+kk
+        if (kk<=ngrid2start+1) then
+          if (abs(row(nparpi+idx))>ftol)  write(34,*) 2*numgrid1+numgrid2+idx, row(nparpi+idx)
+        else
+          if (abs(row(nparpi+idx))>ftol) write(34,*) numgrid1+numgrid2+(ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(nparpi+idx)
+        endif
+        enddo
+        enddo
+        enddo
+      endif 
 !       do jj=1,nx-2
 !    	do kk=1,ny-2
 !    	if (abs(fdm(jj,kk)).gt.1e-5) then
@@ -1588,9 +1652,9 @@ REAL(KIND=i10), DIMENSION (2,2) :: vss
    IF(irx.lt.1.or.irx.gt.nnx)sw=1
    IF(irz.lt.1.or.irz.gt.nnz)sw=1
    IF(sw.eq.1)then
-      irx=90.0-irx*180.0/pi
-      irz=irz*180.0/pi
-      WRITE(6,*)"srtimes Receiver lies outside model (lat,long)= ",irx,irz
+      rcx1=90.0-rcx1*180.0/pi
+      rcz1=rcz1*180.0/pi
+      WRITE(6,*)"srtimes Receiver lies outside model (lat,long)= ",rcx1,rcz1
       WRITE(6,*)"TERMINATING PROGRAM!!!!"
       STOP
    ENDIF
@@ -1799,10 +1863,11 @@ fdm=0
    sw=0
    IF(ipx.lt.1.or.ipx.ge.nnx)sw=1
    IF(ipz.lt.1.or.ipz.ge.nnz)sw=1
+      !print*,ipx,ipz,nnx,nnz,surfrcx,surfrcz,gox,goz,dnx,dnz
    IF(sw.eq.1)then
-      ipx=90.0-ipx*180.0/pi
-      ipz=ipz*180.0/pi
-      WRITE(6,*)"rpath Receiver lies outside model (lat,long)= ",ipx,ipz
+      surfrcx=90.0-surfrcx*180.0/pi
+      surfrcz=surfrcz*180.0/pi
+      WRITE(6,*)"rpath Receiver lies outside model (lat,long)= ",surfrcx,surfrcz
       WRITE(6,*)"TERMINATING PROGRAM!!!"
       STOP
    ENDIF
