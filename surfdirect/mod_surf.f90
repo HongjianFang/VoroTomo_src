@@ -124,7 +124,7 @@ module variable_def
 	integer knumi,srcnum,count1
         integer nsrcsurf,nrc
         real,dimension(:,:,:),allocatable::vel
-        integer ngrid1stop,ngrid2start
+        integer ngrid1sep,ngrid2sep
         character line*200
         real mface
         real noiselevel

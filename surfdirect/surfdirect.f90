@@ -6,7 +6,7 @@
         implicit none
         integer :: n,m,i,j,k
         real :: earthr
-        integer numgrid2
+        integer numgrid2,numgrid1
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -169,21 +169,21 @@
 
     elseif(n_interfaces==3) then
       mface = sum(intrface(2)%r)/size(intrface(2)%r) 
-      ngrid1stop=nint((vgrid(1,1)%r(vgrid(1,1)%nr-1)-mface)/vgrid(1,1)%dr0)
-      ngrid2start=nint((mface-vgrid(2,1)%r(2))/vgrid(2,1)%dr0)
-      nz = ngrid1stop+ngrid2start+2
+      ngrid1sep=nint((vgrid(1,1)%r(vgrid(1,1)%nr-1)-mface)/vgrid(1,1)%dr0)
+      ngrid2sep=nint((mface-vgrid(2,1)%r(2))/vgrid(2,1)%dr0)
+      nz = ngrid1sep+ngrid2sep+2
       allocate(vel(vgrid(1,1)%nlong,vgrid(1,1)%nlat,(nz+2)*2))
       allocate(depz(nz+1))
      ! print*,ngrid1stop,ngrid2start
      ! print*,mface,vgrid(1,1)%r
      ! print*,vgrid(2,1)%r
-      depz(ngrid1stop+1:1:-1)=earthr-vgrid(1,1)%r(vgrid(1,1)%nr-1-ngrid1stop:vgrid(1,1)%nr-1)
-      depz(nz:nz-ngrid2start:-1)=earthr-vgrid(2,1)%r(1:ngrid2start+1)
+      depz(ngrid1sep+1:1:-1)=earthr-vgrid(1,1)%r(vgrid(1,1)%nr-1-ngrid1sep:vgrid(1,1)%nr-1)
+      depz(nz:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+1)
     do m=1,n_vtypes
          do j=1,vgrid(1,m)%nlat
             do k=1,vgrid(1,m)%nlong
-           vel(k,j,(m-1)*(nz+2)+ngrid1stop+2:(m-1)*(nz+2)+1:-1)=vgrid(1,m)%velocity(vgrid(1,1)%nr-1-ngrid1stop:vgrid(1,1)%nr,j,k)
-           vel(k,j,(m-1)*(nz+2)+(nz+2):(m-1)*(nz+2)+(nz+2)-ngrid2start-1:-1)=vgrid(1,m)%velocity(1:ngrid2start+2,j,k)
+           vel(k,j,(m-1)*(nz+2)+ngrid1sep+2:(m-1)*(nz+2)+1:-1)=vgrid(1,m)%velocity(vgrid(1,1)%nr-1-ngrid1sep:vgrid(1,1)%nr,j,k)
+           vel(k,j,(m-1)*(nz+2)+(nz+2):(m-1)*(nz+2)+(nz+2)-ngrid2sep-1:-1)=vgrid(1,m)%velocity(1:ngrid2sep+2,j,k)
             end do
          end do
       enddo
@@ -191,9 +191,10 @@
       print*, 'not implemented yet, only for 2 or 3 interfaces'
       stop
     endif
-    print*, ngrid1stop+2,nz+1-ngrid2start
+    print*, ngrid1sep+2,nz+1-ngrid2sep
     print*,vel(5,5,1:nz+2)
     numgrid2 = vgrid(2,1)%nnode
+    numgrid1 = vgrid(1,1)%nnode
 !-----------------------------------------------------------------------------------
        !if (vgrid(1,m).r(i)<mface) then
        !  n=2
@@ -212,7 +213,7 @@
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrc, &
-              ngrid1stop,ngrid2start,n_interfaces,numgrid2)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
          close(34)
          close(35)
          print*,'surface wave frechet direvitives done'

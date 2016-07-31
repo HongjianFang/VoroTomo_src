@@ -910,7 +910,7 @@ subroutine CalSurfG(nx,ny,nz,vel,dsurf, &
               goxdf,gozdf,dvxdf,dvzdf,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrcf, &
-              ngrid1stop,ngrid2start,n_interfaces,numgrid2)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
 USE globalp
 USE traveltime
 IMPLICIT NONE
@@ -990,9 +990,9 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
 	real cbst1
         integer ii,jj,kk,nn,istep
        integer nxf,nyf
-       integer ngrid1stop,ngrid2start
+       integer ngrid1sep,ngrid2sep
        integer nparpi
-       integer numgrid2
+       integer numgrid2,numgrid1
        integer n_interfaces
        integer idx
        real,parameter::ftol = 1.e-6
@@ -1356,10 +1356,12 @@ dsurf(count1)=cbst1
         do jj = 1,ny
         do kk = 1,nz
         idx =(ii-1)*ny*nz+(jj-1)*nx+kk
-        if (kk<=ngrid2start+1) then
-          if (abs(row(idx))>ftol)  write(34,*) numgrid1+idx, row(idx)
+        if (abs(row(nparpi+idx))>ftol) then 
+        if (kk<=ngrid2sep+1) then
+         write(34,*) numgrid1+idx, row(idx)
         else
-          if (abs(row(idx))>ftol) write(34,*) (ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(idx)
+         write(34,*) (ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(idx)
+        endif
         endif
         enddo
         enddo
@@ -1368,10 +1370,12 @@ dsurf(count1)=cbst1
         do jj = 1,ny
         do kk = 1,nz
         idx =(ii-1)*ny*nz+(jj-1)*nx+kk
-        if (kk<=ngrid2start+1) then
-          if (abs(row(nparpi+idx))>ftol)  write(34,*) 2*numgrid1+numgrid2+idx, row(nparpi+idx)
+        if (abs(row(nparpi+idx))>ftol) then 
+        if (kk<=ngrid2sep+1) then
+         write(34,*) 2*numgrid1+numgrid2+idx, row(nparpi+idx)
         else
-          if (abs(row(nparpi+idx))>ftol) write(34,*) numgrid1+numgrid2+(ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(nparpi+idx)
+         write(34,*) numgrid1+numgrid2+(ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(nparpi+idx)
+        endif
         endif
         enddo
         enddo
