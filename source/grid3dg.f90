@@ -456,9 +456,9 @@ DO ips=1,nvgt
                   WRITE(20,'(f12.8)')vel
                ENDIF
             ENDDO
-            WRITE(20,'(1X)')
+           ! WRITE(20,'(1X)')
          ENDDO
-         WRITE(20,'(1X)')
+         !WRITE(20,'(1X)')
       ENDDO
       DEALLOCATE(velm, STAT=checkstat)
       IF(checkstat > 0)THEN

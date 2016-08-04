@@ -7,6 +7,7 @@
         integer :: n,m,i,j,k
         real :: earthr
         integer numgrid2,numgrid1
+        integer nz1,nz2
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -88,7 +89,7 @@
         WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL srcx,rczf'
         ENDIF
         allocate(periods(nsrcsurf,kmax),wavetype(nsrcsurf,kmax),&
-        nrc1(nsrcsurf,kmax),nsrcsurf1(kmax),knum1(kmax),&
+        nrc1(nsrcsurf,kmax),nsrcsurf1(kmax),&
         igrt(nsrcsurf,kmax),stat=checkstat)
         IF(checkstat > 0)THEN
         WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL wavetype'
@@ -126,7 +127,6 @@
         wavetype(istep,knum)=wavetp
         igrt(istep,knum)=veltp
         nsrcsurf1(knum)=istep
-        knum1(istep2)=knum
         knumo=knum
         else
         read(line,*) sta2_lat,sta2_lon,velvalue
@@ -172,13 +172,15 @@
       ngrid1sep=nint((vgrid(1,1)%r(vgrid(1,1)%nr-1)-mface)/vgrid(1,1)%dr0)
       ngrid2sep=nint((mface-vgrid(2,1)%r(2))/vgrid(2,1)%dr0)
       nz = ngrid1sep+ngrid2sep+2
+      nz1 = vgrid(1,1)%nr
+      nz2 = vgrid(2,1)%nr
       allocate(vel(vgrid(1,1)%nlong,vgrid(1,1)%nlat,(nz+2)*2))
       allocate(depz(nz+1))
      ! print*,ngrid1stop,ngrid2start
      ! print*,mface,vgrid(1,1)%r
      ! print*,vgrid(2,1)%r
       depz(ngrid1sep+1:1:-1)=earthr-vgrid(1,1)%r(vgrid(1,1)%nr-1-ngrid1sep:vgrid(1,1)%nr-1)
-      depz(nz:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+1)
+      depz(nz+1:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+2)
     do m=1,n_vtypes
          do j=1,vgrid(1,m)%nlat
             do k=1,vgrid(1,m)%nlong
@@ -208,11 +210,12 @@
 !print*,depz
 !print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
         open(34,file='frechetsurf.dat')
-        open(35,file='otimessurf.dat')
-        call CalSurfG(nx,ny,nz+2,vel,dsurf, &
+        open(35,file='ttimessurf.dat')
+        print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
+        call CalSurfG(nx,ny,nz+2,nz1,nz2,vel,dsurf, &
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
-              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrc, &
+              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrc, &
               ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
          close(34)
          close(35)

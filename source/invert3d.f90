@@ -111,6 +111,16 @@ CHARACTER (LEN=30) :: refscfile,scfile,pgfile
 CHARACTER (LEN=30) :: otfile,mtfile,rtfile,stfile
 CHARACTER (LEN=30) :: frpfile,frdatfile,invifile
 CHARACTER (LEN=10), DIMENSION(:), ALLOCATABLE :: tpath
+
+! hongjian fang @ethz... adding surface wave data
+!----------------------------------------------------------------
+CHARACTER (LEN=30) :: frdatfilesurf
+CHARACTER (LEN=30) :: otfilesurf,mtfilesurf
+integer :: ntrsurf
+integer :: surfjoint
+REAL(KIND=i5) :: mean,std_surf
+
+!----------------------------------------------------------------
 !
 ! refvgfile = Reference velocity grid file
 ! vgfile = Current velocity grid file
@@ -735,6 +745,34 @@ DO i=1,ntr
    ENDIF
 ENDDO
 CLOSE(30)
+
+! hongjian fang @ethz... adding surface wave data
+!----------------------------------------------------------------
+surfjoint = 1
+frdatfilesurf = 'frechetsurf.dat'
+otfilesurf = 'otimessurf.dat'
+mtfilesurf = 'mtimessurf.dat'
+if (surfjoint == 1) then
+OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
+OPEN(UNIT=35,FILE=otfilesurf,STATUS='old')
+OPEN(UNIT=34,FILE=mtfilesurf,STATUS='old')
+read(35,*) ntrsurf
+
+
+DO i=1,ntrsurf
+   READ(30,*)idm1,nrow
+   nnfd=nnfd+nrow
+   IF(nrow.GT.0)THEN
+      DO j=1,nrow
+         READ(30,*)
+      ENDDO
+   ENDIF
+ENDDO
+CLOSE(30)
+ntr = ntr+ntrsurf
+endif
+!----------------------------------------------------------------
+
 ALLOCATE(frech(nnfd),fcoln(nnfd),cnfe(0:ntr))
 ALLOCATE(dobs(ntr),dmod(ntr),cd(ntr))
 OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
@@ -760,6 +798,18 @@ kstep=0
 isum=0
 iswt=0
 isw2=0
+
+
+! hongjian fang @ethz... adding surface wave data
+!----------------------------------------------------------------
+if (surfjoint == 1) then
+ntr = ntr-ntrsurf
+WRITE(6,*)'------------------------------------------------------------------'
+write(6,*)'no. of non-zero in G', nnfd
+write(6,*)'data for body wave & surface wave', ntr, ntrsurf
+endif
+!----------------------------------------------------------------
+
 DO i=1,ntr
    READ(10,*)idm1,idm2,idm3,idm4,dobs(istep),cd(istep)
 !
@@ -834,6 +884,44 @@ DO i=1,ntr
    ENDIF
    iswt=0
 ENDDO
+
+! hongjian fang @ethz... adding surface wave data
+!----------------------------------------------------------------
+!print*,istep,jstep
+if (surfjoint == 1) then
+OPEN(UNIT=36,FILE=frdatfilesurf,STATUS='old')
+do i=1,ntrsurf
+read(34,*) dmod(istep)
+read(35,*) dobs(istep),cd(istep)
+READ(36,*)idm1,nrow
+cd(istep)=cd(istep)**2
+cnfe(istep)=jstep+nrow
+IF(nrow.GT.0)THEN
+   jstep=jstep+1
+   jup=jstep+nrow-1
+   DO j=jstep,jup
+      READ(36,*)fcoln(j),frech(j)
+   ENDDO
+   IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
+      jstep=jup
+   ELSE
+      jstep=jstep-1
+   ENDIF
+ENDIF
+IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
+   istep=istep+1
+ENDIF
+enddo
+CLOSE(34)
+CLOSE(35)
+CLOSE(36)
+endif
+mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
+std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
+write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
+
+!----------------------------------------------------------------
+
 ntr=istep-1
 !
 ! Rearrange Frechet derivatives to separate out source parameter
@@ -858,7 +946,7 @@ ENDIF
 ! Remove mean from model traveltimes if required
 !
 IF(rmtr.EQ.1.AND.kstep.GT.0)THEN
-   DO i=1,ntr
+   DO i=1,ntr-ntrsurf
       IF(istel(i).GT.0)dmod(i)=dmod(i)-mtmean(istel(i))
    ENDDO
 ENDIF
@@ -869,6 +957,7 @@ IF(ntels.GT.0)CLOSE(40)
 !
 ! Now construct the transpose of the Frechet matrix
 !
+!print*,nnfd,npi,ntr
 ALLOCATE(tfrech(nnfd),tfcoln(nnfd),tcnfe(0:npi),stpv(ntr))
 stpv=1
 jstep=0
@@ -888,12 +977,20 @@ DO i=1,npi
    tcnfe(i)=jstep
 ENDDO
 DEALLOCATE(stpv)
+!print*,'nozeros in transpose',jstep
+!print*,tfrech(jstep-5:jstep+5)
+!print*,tfrech(nnfd-20:nnfd)
 !
 ! We have now set up all the vectors and matrices we
 ! require for the subspace inversion scheme. Call a
 ! routine for performing the inversion
 !
 CALL subspace
+open(64,file='dm.dat')
+do i=1,npi
+write(64,*) dm(i),mc(i)
+enddo
+close(64)
 !
 ! Now write new model to file
 !
@@ -906,18 +1003,23 @@ IF(pvi.EQ.1)THEN
    OPEN(UNIT=10,FILE=vgfile,STATUS='unknown')
    WRITE(10,*)ni-1,nvgt
 
+  ! print*,npi
+  ! print*
+  ! do j=1,npi
+  ! print*,dm(j)
+  ! enddo
       DO j=1,ni-1
    DO i=1,nvgt
     !     WRITE(10,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
     !     WRITE(10,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
     !     WRITE(10,*)gor(j,i),got(j,i),gop(j,i)
-         idm1=0
-         DO k=1,nvgi
-            IF(idvg(k).EQ.j)THEN
-               IF(idvt(k).EQ.i)idm1=1
-            ENDIF
-         ENDDO
-         IF(idm1.EQ.1)THEN
+         !idm1=0
+         !DO k=1,nvgi
+         !   IF(idvg(k).EQ.j)THEN
+         !      IF(idvt(k).EQ.i)idm1=1
+         !   ENDIF
+         !ENDDO
+         !IF(idm1.EQ.1)THEN
             DO k=1,nvnp(j,i)
                DO l=1,nvnt(j,i)
                   DO m=1,nvnr(j,i)
@@ -927,7 +1029,7 @@ IF(pvi.EQ.1)THEN
                   ENDDO
                ENDDO
             ENDDO
-         ENDIF
+         !ENDIF
          enddo
          enddo
 
@@ -1086,7 +1188,6 @@ IF(nvgi.GT.0)DEALLOCATE(idvg,idvt)
 IF(nigi.GT.0)DEALLOCATE(idig)
 IF(nspi.GT.0)DEALLOCATE(ids)
 IF(ntels.GT.0)DEALLOCATE(istel,mtmean)
-WRITE(6,*)'PROGRAM invert successfully completed!!'
 END PROGRAM invert
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1770,9 +1871,9 @@ DO i=1,n
    ENDIF
 ENDDO
 IF(isum.LT.subdim)THEN
-   WRITE(6,*)'Due to redundancy, the subspace dimension'
-   WRITE(6,*)'is being reduced from ',subdim,' to ',isum
-   WRITE(6,*)'Message from SVD orthogonalization algorithm'
+   WRITE(6,*)'subspace dimension decreased from ',subdim,' to ',isum
+   WRITE(6,*)'PROGRAM invert successfully completed!!'
+   WRITE(6,*)'------------------------------------------------------------------'
    DO i=1,isum
       DO j=1,npi
          a(j,i)=a(j,wnz(i))

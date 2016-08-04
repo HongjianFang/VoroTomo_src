@@ -65,7 +65,7 @@ DO i=1,maxiter
 ENDDO
 CLOSE(10)
 OPEN(UNIT=10,FILE=ifile,STATUS='old')
-OPEN(UNIT=20,FILE=ofile,STATUS='unknown')
+!OPEN(UNIT=20,FILE=ofile,STATUS='unknown')
 !
 ! Determine if teleseisms are present
 !
@@ -96,6 +96,7 @@ IF(telp.EQ.1)THEN
    OPEN(UNIT=40,FILE=rtfile,STATUS='old')
 ENDIF
 WRITE(20,*)nr
+write(*,*) 'number of data',nr
 DO i=1,nr
    sdgn=sdgnl
    READ(10,*)i1,i2,i3,i4,tt
@@ -119,7 +120,7 @@ DO i=1,nr
          IF(telegn.EQ.1)cv=sdgn
       ENDIF
    ENDIF
-   WRITE(20,*)i1,i2,i3,i4,tt,cv
+   WRITE(20,'(i4,i3,i3,i2,f10.5,f5.2)')i1,i2,i3,i4,tt,cv
 ENDDO
 CLOSE(10)
 CLOSE(20)

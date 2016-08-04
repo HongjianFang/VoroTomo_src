@@ -87,7 +87,8 @@
     
              do nn = 1,kmaxRc
                 !cga = 0.5*(cg1(nn)+cg2(nn))
-                dlncg_dlnvs(nn,i) = (cg2(nn)-cg1(nn))/(dlnVs*vsz(i))*(-vsz(i)**2)
+                !dlncg_dlnvs(nn,i) = (cg2(nn)-cg1(nn))/(dlnVs*vsz(i))*(vsz(i)**2)
+                dlncg_dlnvs(nn,i) = (cg2(nn)-cg1(nn))/(dlnVs*vsz(i))
              enddo
     
     
@@ -106,7 +107,8 @@
     
              do nn = 1,kmaxRc
 !                cga = 0.5*(cg1(nn)+cg2(nn))
-                dlncg_dlnvp(nn,i) = (cg2(nn)-cg1(nn))/(dlnVp*vpz(i))*(-vpz(i)**2)
+                !dlncg_dlnvp(nn,i) = (cg2(nn)-cg1(nn))/(dlnVp*vpz(i))*(vpz(i)**2)
+                dlncg_dlnvp(nn,i) = (cg2(nn)-cg1(nn))/(dlnVp*vpz(i))
              enddo
               rhom(i) = rhoz(i) - 0.5*dlnrho*rhoz(i)
               call refineGrid2LayerMdl(minthk,mmax,depm,vpm,vsm,rhom,&
@@ -123,7 +125,8 @@
     
              do nn = 1,kmaxRc
 !                cga = 0.5*(cg1(nn)+cg2(nn))
-                dlncg_dlnrho(nn,i) = (cg2(nn)-cg1(nn))/(dlnrho*rhoz(i))*(-vpz(i)**2)
+                !dlncg_dlnrho(nn,i) = (cg2(nn)-cg1(nn))/(dlnrho*rhoz(i))*(vpz(i)**2)
+                dlncg_dlnrho(nn,i) = (cg2(nn)-cg1(nn))/(dlnrho*rhoz(i))
              enddo
      	  enddo
     	sen_vsRc((jj-1)*ny+ny-ii+1,1:kmaxRc,1:mmax)=dlncg_dlnvs(1:kmaxRc,1:mmax)
@@ -135,6 +138,13 @@
 !$omp end do
 !$omp end parallel
         print*,'finishing depth kernels'
+       ! print*,sen_vsRc(5,10,:)
+       ! print*,
+       ! print*,sen_vpRc(5,20,:)
+       ! print*,
+       ! print*,sen_rhoRc(5,30,:)
+       ! print*,
+
 
              end subroutine depthkernel
 
@@ -906,10 +916,10 @@ END MODULE traveltime
 ! extensions.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !PROGRAM tomo_surf
-subroutine CalSurfG(nx,ny,nz,vel,dsurf, &
+subroutine CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxdf,gozdf,dvxdf,dvzdf,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
-              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,knum1,kmax,nsrcsurf,nrcf, &
+              scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrcf, &
               ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
 USE globalp
 USE traveltime
@@ -955,6 +965,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
 !c-----------------------------------------------------------------
 !	variables defined by Hongjian Fang
 	integer nx,ny,nz
+        integer nz1,nz2
        integer kmax,nsrcsurf,nrcf
        real vel(nx,ny,nz*2)
        real dsurf(*)
@@ -963,7 +974,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        real*8 tRc(*),tRg(*),tLc(*),tLg(*)
        integer wavetype(nsrcsurf,kmax)
        integer periods(nsrcsurf,kmax),nrc1(nsrcsurf,kmax),nsrcsurf1(kmax)
-       integer knum1(kmax),igrt(nsrcsurf,kmax)
+       integer igrt(nsrcsurf,kmax)
        real scxf(nsrcsurf,kmax),sczf(nsrcsurf,kmax),rcxf(nrcf,nsrcsurf,kmax),rczf(nrcf,nsrcsurf,kmax)
        real minthk
 
@@ -996,6 +1007,10 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        integer n_interfaces
        integer idx
        real,parameter::ftol = 1.e-6
+       real nnzero(2*numgrid1+2*numgrid2)
+       integer idxnnzero(2*numgrid1+2*numgrid2)
+       integer sortidxnnzero(2*numgrid1+2*numgrid2)
+       integer count2
 
 gdx=5                                                                           
 gdz=5                                                                           
@@ -1108,35 +1123,35 @@ kmax1=kmaxRc
 kmax2=kmaxRc+kmaxRg
 kmax3=kmaxRc+kmaxRg+kmaxLc
 do knumi=1,kmax
-do srcnum=1,nsrcsurf1(knum1(knumi))
-	if(wavetype(srcnum,knum1(knumi))==2.and.igrt(srcnum,knum1(knumi))==0) then
-        velf(1:nxf*nyf)=pvRc(1:nxf*nyf,periods(srcnum,knum1(knumi)))
+do srcnum=1,nsrcsurf1(knumi)
+	if(wavetype(srcnum,knumi)==2.and.igrt(srcnum,knumi)==0) then
+        velf(1:nxf*nyf)=pvRc(1:nxf*nyf,periods(srcnum,knumi))
         sen_vs(:,1:kmax1,:)=sen_vsRc(:,1:kmaxRc,:)!(:,nt(istep),:)
         sen_vp(:,1:kmax1,:)=sen_vpRc(:,1:kmaxRc,:)!(:,nt(istep),:)
         sen_rho(:,1:kmax1,:)=sen_rhoRc(:,1:kmaxRc,:)!(:,nt(istep),:)
         endif
-	if(wavetype(srcnum,knum1(knumi))==2.and.igrt(srcnum,knum1(knumi))==1) then
-        velf(1:nxf*nyf)=pvRg(1:nxf*nyf,periods(srcnum,knum1(knumi)))
+	if(wavetype(srcnum,knumi)==2.and.igrt(srcnum,knumi)==1) then
+        velf(1:nxf*nyf)=pvRg(1:nxf*nyf,periods(srcnum,knumi))
         sen_vs(:,kmax1+1:kmax2,:)=sen_vsRg(:,1:kmaxRg,:)!(:,nt,:)
         sen_vp(:,kmax1+1:kmax2,:)=sen_vpRg(:,1:kmaxRg,:)!(:,nt,:)
         sen_rho(:,kmax1+1:kmax2,:)=sen_rhoRg(:,1:kmaxRg,:)!(:,nt,:)
         endif
-	if(wavetype(srcnum,knum1(knumi))==1.and.igrt(srcnum,knum1(knumi))==0) then
-        velf(1:nxf*nyf)=pvLc(1:nxf*nyf,periods(srcnum,knum1(knumi)))
+	if(wavetype(srcnum,knumi)==1.and.igrt(srcnum,knumi)==0) then
+        velf(1:nxf*nyf)=pvLc(1:nxf*nyf,periods(srcnum,knumi))
         sen_vs(:,kmax2+1:kmax3,:)=sen_vsLc(:,1:kmaxLc,:)!(:,nt,:)
         sen_vp(:,kmax2+1:kmax3,:)=sen_vpLc(:,1:kmaxLc,:)!(:,nt,:)
         sen_rho(:,kmax2+1:kmax3,:)=sen_rhoLc(:,1:kmaxLc,:)!(:,nt,:)
         endif
-	if(wavetype(srcnum,knum1(knumi))==1.and.igrt(srcnum,knum1(knumi))==1) then
-        velf(1:nxf*nyf)=pvLg(1:nxf*nyf,periods(srcnum,knum1(knumi)))
+	if(wavetype(srcnum,knumi)==1.and.igrt(srcnum,knumi)==1) then
+        velf(1:nxf*nyf)=pvLg(1:nxf*nyf,periods(srcnum,knumi))
         sen_vs(:,kmax3+1:kmax,:)=sen_vsLg(:,1:kmaxLg,:)!(:,nt,:)
         sen_vp(:,kmax3+1:kmax,:)=sen_vpLg(:,1:kmaxLg,:)!(:,nt,:)
         sen_rho(:,kmax3+1:kmax,:)=sen_rhoLg(:,1:kmaxLg,:)!(:,nt,:)
         endif
 
 call gridder(velf)
-   x=scxf(srcnum,knum1(knumi))
-   z=sczf(srcnum,knum1(knumi))
+   x=scxf(srcnum,knumi)
+   z=sczf(srcnum,knumi)
 !
 !  Begin by computing refined source grid if required
 !
@@ -1314,8 +1329,8 @@ call gridder(velf)
 !  Find source-receiver traveltimes if required
 !
 !  
-         do istep=1,nrc1(srcnum,knum1(knumi))
-      CALL srtimes(x,z,rcxf(istep,srcnum,knum1(knumi)),rczf(istep,srcnum,knum1(knumi)),cbst1)
+         do istep=1,nrc1(srcnum,knumi)
+      CALL srtimes(x,z,rcxf(istep,srcnum,knumi),rczf(istep,srcnum,knumi),cbst1)
  count1=count1+1
 dsurf(count1)=cbst1
 !!-------------------------------------------------------------
@@ -1325,43 +1340,59 @@ dsurf(count1)=cbst1
 !  Calculate Frechet derivatives with the same subroutine
 !  if required.
 !
-      CALL rpaths(x,z,fdm,rcxf(istep,srcnum,knum1(knumi)),rczf(istep,srcnum,knum1(knumi)))
+      CALL rpaths(x,z,fdm,rcxf(istep,srcnum,knumi),rczf(istep,srcnum,knumi))
+!fdm(0:nvz+1,0:nvx+1)
       row=0
+      idxnnzero=0
+      sortidxnnzero=0
+      nnzero=0.
         do jj=1,nx
         do kk=1,ny
         if (abs(fdm(jj-1,kk-1))>ftol) then
         coe_rho=(1.6612-0.4721*2*vel(jj,ny-kk+1,2:nz)+ &
         0.0671*3*vel(jj,ny-kk+1,2:nz)**2-0.0043*4*vel(jj,ny-kk+1,2:nz)**3+ &
         0.000106*5*vel(jj,ny-kk+1,2:nz)**4)
-        row((jj-1)*ny*nz+(ny-kk)*nz+nz:(jj-1)*ny*nz+(ny-kk)*nz+2:-1)= &
-        (sen_rho((jj-1)*ny+kk,knum1(knumi),1:nz-1)*coe_rho(1:nz-1)+ &
-        sen_vp((jj-1)*ny+kk,knum1(knumi),1:nz-1))*fdm(jj-1,kk-1)
-        row(nparpi+(jj-1)*ny*nz+(ny-kk)*nz+nz:nparpi+(jj-1)*ny*nz+(ny-kk)*nz+2:-1) = &
-        sen_vs((jj-1)*ny+kk,knum1(knumi),1:nz-1)*fdm(jj-1,kk-1)
+        row((jj-1)*ny*nz+(ny-kk)*nz+nz-1:(jj-1)*ny*nz+(ny-kk)*nz+1:-1)= &
+        (sen_rho((jj-1)*ny+kk,knumi,1:nz-1)*coe_rho(1:nz-1)+ &
+        sen_vp((jj-1)*ny+kk,knumi,1:nz-1))*fdm(jj-1,kk-1)
+        !sen_vp((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
+        row(nparpi+(jj-1)*ny*nz+(ny-kk)*nz+nz-1:nparpi+(jj-1)*ny*nz+(ny-kk)*nz+1:-1) = &
+        sen_vs((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
         endif
         enddo
         enddo
 
       write(34,*) count1,count(abs(row)>ftol)
+      !print*,nx,ny,nz,nparpi
+      !print*,
+      !do ii=1,2*nparpi
+      !if(abs(row(ii))>ftol) print*,row(ii)
+      !enddo
       write(35,*) dsurf(count1)
       if ( n_interfaces == 2 ) then
         do jj = 1,2*nparpi
         if (abs(row(jj))>ftol) then
-        write(34,*) jj, row(jj)
+        write(34,*) jj, -row(jj)
         endif
         enddo
       else
         !something is wrong here, the idx is wrong...define two separate point for grid1 and grid2
+        count2=0
         do ii = 1,nx
         do jj = 1,ny
         do kk = 1,nz
-        idx =(ii-1)*ny*nz+(jj-1)*nx+kk
-        if (abs(row(nparpi+idx))>ftol) then 
-        if (kk<=ngrid2sep+1) then
-         write(34,*) numgrid1+idx, row(idx)
-        else
-         write(34,*) (ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(idx)
+        idx =(ii-1)*ny*nz+(jj-1)*nz+kk
+        if (abs(row(idx))>ftol .and. kk<=ngrid2sep+2) then 
+          count2=count2+1
+          idxnnzero(count2)=2*numgrid1+(ii-1)*ny*nz2+(jj-1)*nz2+kk
+          nnzero(count2) = row(idx)
+         !write(34,*) 2*numgrid1+(ii-1)*ny*nz2+(jj-1)*nz2+kk,-row(idx)
         endif
+        if (abs(row(idx))>ftol .and. kk>ngrid2sep+2) then 
+          count2=count2+1
+          idxnnzero(count2)=(ii-1)*ny*nz1+(jj-1)*nz1+(nz1-1-ngrid1sep+kk-ngrid2sep-2)
+          nnzero(count2) = row(idx)
+         !write(34,*) (ii-1)*ny*nz1+(jj-1)*nz1+(ngrid1sep+kk-ngrid2sep), -row(idx)
         endif
         enddo
         enddo
@@ -1369,18 +1400,27 @@ dsurf(count1)=cbst1
         do ii = 1,nx
         do jj = 1,ny
         do kk = 1,nz
-        idx =(ii-1)*ny*nz+(jj-1)*nx+kk
-        if (abs(row(nparpi+idx))>ftol) then 
-        if (kk<=ngrid2sep+1) then
-         write(34,*) 2*numgrid1+numgrid2+idx, row(nparpi+idx)
-        else
-         write(34,*) numgrid1+numgrid2+(ii-1)*ny*nz+(jj-1)*nx+(ngrid1sep+kk-ngrid2sep), row(nparpi+idx)
+        idx =(ii-1)*ny*nz+(jj-1)*nz+kk
+        if (abs(row(nparpi+idx))>ftol .and. kk<=ngrid2sep+1) then 
+          count2=count2+1
+          idxnnzero(count2)=2*numgrid1+numgrid2+(ii-1)*ny*nz2+(jj-1)*nz2+kk
+          nnzero(count2) = row(nparpi+idx)
+         !write(34,*) 2*numgrid1+numgrid2+(ii-1)*ny*nz2+(jj-1)*nz2+kk, -row(nparpi+idx)
         endif
+        if (abs(row(nparpi+idx))>ftol .and. kk>ngrid2sep+1) then 
+          count2=count2+1
+          idxnnzero(count2)=numgrid1+(ii-1)*ny*nz1+(jj-1)*nz1+(nz1-1-ngrid1sep+kk-ngrid2sep-2)
+          nnzero(count2) = row(nparpi+idx)
+         !write(34,*) numgrid1+(ii-1)*ny*nz1+(jj-1)*nz1+(ngrid1sep+kk-ngrid2sep), -row(nparpi+idx)
         endif
         enddo
         enddo
         enddo
       endif 
+      call argsort(idxnnzero,sortidxnnzero,count2)
+      do i=1,count2
+      write(34,*) idxnnzero(sortidxnnzero(i)), nnzero(sortidxnnzero(i))
+      enddo
 !       do jj=1,nx-2
 !    	do kk=1,ny-2
 !    	if (abs(fdm(jj,kk)).gt.1e-5) then
@@ -2380,4 +2420,38 @@ END SUBROUTINE bilinear
 
         return
         end
+
+subroutine argsort(a,b,num)
+! Returns the indices that would sort an array.
+integer num
+integer, intent(in):: a(num)    ! array of numbers
+integer :: b(num)         ! indices into the array 'a' that sort it
+!
+! Example
+! -------
+!
+! iargsort([10, 9, 8, 7, 6])   ! Returns [5, 4, 3, 2, 1]
+
+integer :: N                           ! number of numbers/vectors
+integer :: i,imin                      ! indices: i, i of smallest
+integer :: temp                        ! temporary
+integer :: a2(size(a))
+a2 = a
+N=size(a)
+do i = 1, N
+    b(i) = i
+end do
+do i = 1, N-1
+    ! find ith smallest in 'a'
+    imin = minloc(a2(i:),1) + i - 1
+
+    ! swap to position i in 'a' and 'b', if not already there
+    if (imin /= i) then
+        temp = a2(i); a2(i) = a2(imin); a2(imin) = temp
+        temp = b(i); b(i) = b(imin); b(imin) = temp
+    end if
+end do
+end 
+
+
 
