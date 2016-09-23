@@ -297,6 +297,7 @@ DO ips=1,nvgt
          rdep=-(gor+gsr)
          IF(rdep.LT.d1)THEN
             WRITE(6,*)'Top of 3-D grid lies above radial extent of 1-D model!!'
+            write(6,*) rdep, gor,gsr
             WRITE(6,*)'Terminating program'
             STOP
          ENDIF
@@ -312,7 +313,8 @@ DO ips=1,nvgt
                IF(rdep.GT.d2)THEN
                   d1=d2
                   v1=v2
-                  IF(pors.EQ.0)THEN
+                  ! bug here, hongjian: change pos == 0 to ips == 1
+                  IF(ips.EQ.1)THEN
                      READ(40,*)d2,v2
                   ELSE
                     READ(40,*)d2,rdum,v2

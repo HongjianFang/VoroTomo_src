@@ -578,11 +578,13 @@ subroutine ray_partials(ray)
 
 ! store the partial derivatives for this ray (row in inversion matrix)) in CRS
 
-  ray%n_pdev = count(dtdpar /= 0.0_dp)
+  !ray%n_pdev = count(dtdpar /= 0.0_dp)
+  ray%n_pdev = count(abs(dtdpar) > 1.0e-2)
   allocate(ray%pdev(ray%n_pdev),ray%pdev_indx(ray%n_pdev))
   m=0
   do n=1,n_inv_parms
-     if (dtdpar(n) /= 0.0_dp) then
+     !if (dtdpar(n) /= 0.0_dp) then
+     if (abs(dtdpar(n)) > 1.0e-2) then
         m=m+1
         ray%pdev(m) = dtdpar(n)
         ray%pdev_indx(m)=n

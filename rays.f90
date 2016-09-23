@@ -995,6 +995,8 @@ subroutine interpolate_time_gradient(tf,r,lat,long,dtdr,dtdlat,dtdlong,verbose,o
 
 !  if (tf%id == 2) write(15,'(3i5,6f12.6)') ir,ilat,ilong,r,lat,long,dtdr,dtdlat,dtdlong
 
+     !debug
+     !   print*, dtdr,dtdlat,dtdlong,sqrt(dtdr**2+dtdlat**2+dtdlong**2) 
   if (sqrt(dtdr**2+dtdlat**2+dtdlong**2) < 0.01_dp) then
      print *
      print *,'----- WARNING -------'
@@ -1209,6 +1211,10 @@ subroutine interpolate_arrivaltime(tf,r,lat,long,atime)
   dr(3)= (long-reg%long(node))*r*cos(lat)
 
   atime=tf%arrivaltime(node)+dot_product(tf%time_gradient(1:3,node),dr)
+  !debug
+ ! if (atime>500) then
+ !   print*,'fang',tf%arrivaltime(node),tf%time_gradient(1:3,node),dr
+ ! endif
 
   return
 

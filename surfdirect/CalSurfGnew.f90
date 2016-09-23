@@ -137,6 +137,14 @@
     	enddo
 !$omp end do
 !$omp end parallel
+!      do jj=1,nx
+!  	do ii=1,ny
+!  	pvRc((jj-1)*ny+ny-ii+1,1:kmaxRc)=cgRc(1:kmaxRc)
+!  	sen_vsRc((jj-1)*ny+ny-ii+1,1:kmaxRc,1:mmax)=dlncg_dlnvs(1:kmaxRc,1:mmax)
+!  	sen_vpRc((jj-1)*ny+ny-ii+1,1:kmaxRc,1:mmax)=dlncg_dlnvp(1:kmaxRc,1:mmax)
+!  	sen_rhoRc((jj-1)*ny+ny-ii+1,1:kmaxRc,1:mmax)=dlncg_dlnrho(1:kmaxRc,1:mmax)
+!    enddo
+!  enddo
         print*,'finishing depth kernels'
        ! print*,sen_vsRc(5,10,:)
        ! print*,
@@ -297,7 +305,7 @@ IF(isz.lt.1.or.isz.gt.nnz)sw=1
 IF(sw.eq.1)then
    scx=90.0-scx*180.0/pi
    scz=scz*180.0/pi
-   WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",scx,scz
+   WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",isx,isz,scx,scz
    WRITE(6,*)"TERMINATING PROGRAM!!!"
    STOP
 ENDIF
@@ -1006,7 +1014,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        integer numgrid2,numgrid1
        integer n_interfaces
        integer idx
-       real,parameter::ftol = 1.e-6
+       real,parameter::ftol = 1.e-2
        real nnzero(2*numgrid1+2*numgrid2)
        integer idxnnzero(2*numgrid1+2*numgrid2)
        integer sortidxnnzero(2*numgrid1+2*numgrid2)
@@ -1026,8 +1034,8 @@ dvxd=dvxdf
 dvzd=dvzdf
 nxf=ny
 nyf=nx
-nvx=nxf-2
-nvz=nyf-2
+nvx=nxf
+nvz=nyf
 nparpi=nx*ny*nz
 
 ALLOCATE(velv(0:nvz+1,0:nvx+1), STAT=checkstat)
@@ -1348,16 +1356,16 @@ dsurf(count1)=cbst1
       nnzero=0.
         do jj=1,nx
         do kk=1,ny
-        if (abs(fdm(jj-1,kk-1))>ftol) then
+        if (abs(fdm(jj,kk))>ftol) then
         coe_rho=(1.6612-0.4721*2*vel(jj,ny-kk+1,2:nz)+ &
         0.0671*3*vel(jj,ny-kk+1,2:nz)**2-0.0043*4*vel(jj,ny-kk+1,2:nz)**3+ &
         0.000106*5*vel(jj,ny-kk+1,2:nz)**4)
         row((jj-1)*ny*nz+(ny-kk)*nz+nz-1:(jj-1)*ny*nz+(ny-kk)*nz+1:-1)= &
         (sen_rho((jj-1)*ny+kk,knumi,1:nz-1)*coe_rho(1:nz-1)+ &
-        sen_vp((jj-1)*ny+kk,knumi,1:nz-1))*fdm(jj-1,kk-1)
+        sen_vp((jj-1)*ny+kk,knumi,1:nz-1))*fdm(jj,kk)
         !sen_vp((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
         row(nparpi+(jj-1)*ny*nz+(ny-kk)*nz+nz-1:nparpi+(jj-1)*ny*nz+(ny-kk)*nz+1:-1) = &
-        sen_vs((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
+        sen_vs((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj,kk)
         endif
         enddo
         enddo
@@ -1370,9 +1378,12 @@ dsurf(count1)=cbst1
       !enddo
       write(35,*) dsurf(count1)
       if ( n_interfaces == 2 ) then
+        count2=0
         do jj = 1,2*nparpi
         if (abs(row(jj))>ftol) then
-        write(34,*) jj, -row(jj)
+          count2=count2+1
+          idxnnzero(count2)=jj
+          nnzero(count2) = row(jj)
         endif
         enddo
       else
@@ -1496,12 +1507,13 @@ double precision pv(*)
 !READ(10,*)goxd,gozd
 !READ(10,*)dvxd,dvzd
 !count1=0
-DO i=0,nvz+1
-   DO j=0,nvx+1
+velv = sum(pv(1:nvx*nvz))/(nvx*nvz)
+DO i=1,nvz
+   DO j=1,nvx
 !	count1=count1+1
 !      READ(10,*)velv(i,j)
 !	velv(i,j)=real(pv(count1))
-	velv(i,j)=real(pv(i*(nvx+2)+j+1))
+	velv(i,j)=real(pv(i*nvx+j))
    ENDDO
 ENDDO
 !CLOSE(10)
@@ -1698,7 +1710,7 @@ REAL(KIND=i10), DIMENSION (2,2) :: vss
    IF(sw.eq.1)then
       rcx1=90.0-rcx1*180.0/pi
       rcz1=rcz1*180.0/pi
-      WRITE(6,*)"srtimes Receiver lies outside model (lat,long)= ",rcx1,rcz1
+      WRITE(6,*)"srtimes Receiver lies outside model (lat,long)= ",irx,irz,nnx,nnz,rcx1,rcz1
       WRITE(6,*)"TERMINATING PROGRAM!!!!"
       STOP
    ENDIF

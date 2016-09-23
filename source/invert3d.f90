@@ -84,6 +84,7 @@ END MODULE globalp
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 PROGRAM invert
 USE globalp
+use lsmrModule, only:lsmr
 IMPLICIT NONE
 INTEGER :: i,j,k,l,m
 INTEGER ::  minsd,comfd,ni,nvgt,vgid,mvnr,mvnp,mvnt,cstp
@@ -119,6 +120,25 @@ CHARACTER (LEN=30) :: otfilesurf,mtfilesurf
 integer :: ntrsurf
 integer :: surfjoint
 REAL(KIND=i5) :: mean,std_surf
+
+! variable definition for lsmr
+integer leniw,lenrw
+real atol,btol
+real conlim
+integer istop
+integer itnlim
+integer nout
+integer itn
+real acond,anorm,arnorm,rnorm,xnorm
+integer localSize
+integer,allocatable,dimension(:)::iw,col
+real,allocatable,dimension(:)::rw,dtrav
+real,allocatable,dimension(:)::norm
+real damp
+integer checkstat
+integer inversionScheme
+integer is1,is2,is3
+character*4 itnum
 
 !----------------------------------------------------------------
 !
@@ -225,6 +245,8 @@ READ(10,*)epsilon
 READ(10,*)asds
 READ(10,*)eta
 READ(10,*)earthr
+read(10,*)surfjoint
+read(10,*)inversionScheme
 1 FORMAT(a26)
 CLOSE(10)
 !
@@ -748,7 +770,7 @@ CLOSE(30)
 
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
-surfjoint = 1
+!surfjoint = 1
 frdatfilesurf = 'frechetsurf.dat'
 otfilesurf = 'otimessurf.dat'
 mtfilesurf = 'mtimessurf.dat'
@@ -915,14 +937,15 @@ enddo
 CLOSE(34)
 CLOSE(35)
 CLOSE(36)
-endif
 mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
 std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
 write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
+endif
 
 !----------------------------------------------------------------
 
 ntr=istep-1
+!print*,'traces number',ntr
 !
 ! Rearrange Frechet derivatives to separate out source parameter
 ! classes only if sources are inverted for.
@@ -985,7 +1008,270 @@ DEALLOCATE(stpv)
 ! require for the subspace inversion scheme. Call a
 ! routine for performing the inversion
 !
+if (inversionScheme == 1) then
 CALL subspace
+if (pvi>0) then
+write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
+write(*,*) 'min. and max. velocity variation', minval(dm(1:nvpi)),maxval(dm(1:nvpi))
+endif
+
+else 
+! call lsmr instead of subspace to solve Ax = b
+! first smooth velocity and interface grids if both are included in the inversion
+allocate(iw(2*(nnfd+9*npi)+1),stat=checkstat)
+if(checkstat>0) stop 'error allocating iw'
+allocate(rw(nnfd+9*npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating rw'
+allocate(col(nnfd+9*npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating rw'
+allocate(dtrav(ntr+9*npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating dtrav'
+allocate(norm(npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating norm'
+iw = 0
+rw = 0.
+jstep = 0
+do m = 1,ntr
+  do j = cnfe(m-1)+1,cnfe(m)
+    jstep = jstep + 1
+    iw(1+jstep) = m
+    rw(jstep) = frech(jstep)/cd(m)
+    col(jstep) = fcoln(jstep)
+  enddo
+enddo
+!aguement smooth matrix under the sensitivity matrix
+damp = epsilon
+is2=0
+IF(nvpi.GT.0)THEN
+  DO i=1,nvgi
+    DO k=1,nvnp(idvg(i),idvt(i))
+      DO l=1,nvnt(idvg(i),idvt(i))
+        DO m=1,nvnr(idvg(i),idvt(i))
+          is2=is2+1
+          IF(m.NE.1.AND.m.NE.nvnr(idvg(i),idvt(i)))THEN
+            is1=is2-1
+            is3=is2+1
+            iw(1+jstep+1) = istep
+            iw(1+jstep+2) = istep
+            iw(1+jstep+3) = istep
+            rw(jstep+1) = 1.0*etav
+            rw(jstep+2) = -2.0*etav
+            rw(jstep+3) = 1.0*etav
+            col(jstep+1) = is1 
+            col(jstep+2) = is2
+            col(jstep+3) = is3
+            istep = istep + 1
+            jstep = jstep + 3
+          else
+            rw(jstep+1) = 5*etav
+            col(jstep+1) = is2
+            iw(1+jstep+1) = istep
+            jstep = jstep+1
+            istep = istep+1
+          ENDIF
+          IF(l.NE.1.AND.l.NE.nvnt(idvg(i),idvt(i)))THEN
+            is1=is2-nvnr(idvg(i),idvt(i))
+            is3=is2+nvnr(idvg(i),idvt(i))
+            iw(1+jstep+1) = istep
+            iw(1+jstep+2) = istep
+            iw(1+jstep+3) = istep
+            rw(jstep+1) = 1.0*etav
+            rw(jstep+2) = -2.0*etav
+            rw(jstep+3) = 1.0*etav
+            col(jstep+1) = is1 
+            col(jstep+2) = is2
+            col(jstep+3) = is3
+            istep = istep + 1
+            jstep = jstep + 3
+          else
+            rw(jstep+1) = 5*etav
+            col(jstep+1) = is2
+            iw(1+jstep+1) = istep
+            jstep = jstep+1
+            istep = istep+1
+          ENDIF
+          IF(k.NE.1.AND.k.NE.nvnp(idvg(i),idvt(i)))THEN
+            is1=is2-nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
+            is3=is2+nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
+            iw(1+jstep+1) = istep
+            iw(1+jstep+2) = istep
+            iw(1+jstep+3) = istep
+            rw(jstep+1) = 1.0*etav
+            rw(jstep+2) = -2.0*etav
+            rw(jstep+3) = 1.0*etav
+            col(jstep+1) = is1 
+            col(jstep+2) = is2
+            col(jstep+3) = is3
+            istep = istep + 1
+            jstep = jstep + 3
+          else
+            rw(jstep+1) = 5*etav
+            col(jstep+1) = is2
+            iw(1+jstep+1) = istep
+            jstep = jstep+1
+            istep = istep+1
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+  ENDDO
+ENDIF
+!
+! Now add interface parameters if they exist.
+!
+IF(nipi.GT.0)THEN
+  DO i=1,nigi
+    DO j=1,ninp
+      DO k=1,nint
+        is2=is2+1
+        IF(k.NE.1.AND.k.NE.nint)THEN
+          is1=is2-1
+          is3=is2+1
+          iw(1+jstep+1) = istep
+          iw(1+jstep+2) = istep
+          iw(1+jstep+3) = istep
+          rw(jstep+1) = 1.0*etai
+          rw(jstep+2) = -2.0*etai
+          rw(jstep+3) = 1.0*etai
+          col(jstep+1) = is1 
+          col(jstep+2) = is2
+          col(jstep+3) = is3
+          istep = istep + 1
+          jstep = jstep + 3
+        else
+          rw(jstep+1) = 5*etai
+          col(jstep+1) = is2
+          iw(1+jstep+1) = istep
+          jstep = jstep+1
+          istep = istep+1
+        ENDIF
+        IF(j.NE.1.AND.j.NE.ninp)THEN
+          is1=is2-nint
+          is3=is2+nint
+          iw(1+jstep+1) = istep
+          iw(1+jstep+2) = istep
+          iw(1+jstep+3) = istep
+          rw(jstep+1) = 1.0*etai
+          rw(jstep+2) = -2.0*etai
+          rw(jstep+3) = 1.0*etai
+          col(jstep+1) = is1 
+          col(jstep+2) = is2
+          col(jstep+3) = is3
+          istep = istep + 1
+          jstep = jstep + 3
+        else
+          rw(jstep+1) = 5*etai
+          col(jstep+1) = is2
+          iw(1+jstep+1) = istep
+          jstep = jstep+1
+          istep = istep+1
+        ENDIF
+      ENDDO
+    ENDDO
+  ENDDO
+ENDIF
+
+! regularization for sources position and origin times
+if (nspi>0) then
+  do i=1,nspi
+    iw(1+jstep+i) = istep
+    rw(jstep+i) = 30.0*epss1
+    col(jstep+i) = nvpi+nipi+i
+    istep = istep+1
+  enddo
+  do i=1,2*nspi
+    iw(1+jstep+nspi+i) = istep
+    rw(jstep+nspi+i) = 1.0*epss1
+    col(jstep+nspi+i) = nvpi+nipi+nspi+i
+    istep = istep+1
+  enddo
+  do i=1,nspi
+    iw(1+jstep+3*nspi+i) = istep
+    rw(jstep+3*nspi+i) = 1.0*epss2
+    col(jstep+3*nspi+i) = nvpi+nipi+3*nspi+i
+    istep = istep+1
+  enddo
+endif
+jstep = jstep+4*nspi
+
+m = istep -1
+l = npi
+iw(1) = jstep
+do i = 1,jstep
+  iw(1+jstep+i) = col(i)
+enddo
+
+norm = 0
+do i=1,jstep
+  norm(iw(1+jstep+i)) = norm(iw(1+jstep+i)) + rw(i)**2
+enddo
+
+do i=1,npi
+  norm(i) = sqrt(norm(i)/m)
+enddo
+
+!do i = 1,jstep
+!  rw(i) = rw(i)/norm(iw(1+jstep+i))
+!enddo
+
+
+    leniw = 2*jstep+1
+    lenrw = jstep 
+    dm = 0
+    atol = 1e-3
+    btol = 1e-3
+    conlim = 100
+    itnlim = 200
+    istop = 0
+    anorm = 0.0
+    acond = 0.0
+    arnorm = 0.0
+    xnorm = 0.0
+    localSize = l/4
+
+DO i=1,ntr
+   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
+ENDDO
+do i=ntr+1,m
+  dtrav(i)=0.
+enddo
+        nout = 36
+        write (itnum,'(I0)') invstep
+        open(nout,file='lsmrout'//trim(itnum)//'.txt')
+!print*,nvpi,nipi,npi,m,l,jstep,leniw
+print*,'-----------------------------------------------------'
+print*,'iteration:',invstep
+print*,'min. and max. dws',minval(norm),maxval(norm)
+    call LSMR(m, l, leniw, lenrw,iw,rw,dtrav, damp,&
+      atol, btol, conlim, itnlim, localSize, nout,&
+      dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
+    dm = -dm
+    !do i = 1,npi
+    !  dm(i) = dm(i)/norm(i)
+    !enddo
+    !if(istop==3) print*,'istop = 3, large condition number'
+    deallocate(iw,col)
+    deallocate(rw,dtrav,norm)
+    close(nout)
+if (pvi>0) then
+write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
+write(*,*) 'min. and max. velocity variation', minval(dm(1:nvpi)),maxval(dm(1:nvpi))
+endif
+if(psi>0) then
+write(*,*) 'min. and max. srcs location variation: rad', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
+                maxval(dm(nvpi+nipi+1:nvpi+nipi+nspi))
+write(*,*) 'min. and max. srcs location variation: lat', 0.009*minval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi)),&
+                0.009*maxval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi))
+write(*,*) 'min. and max. srcs location variation: lon', 0.009*minval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi)),& 
+                0.009*maxval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi))
+write(*,*) 'min. and max. srcs location variation: stp', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
+                maxval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi))
+print*,'-----------------------------------------------------'
+endif
+
+endif
+
+
 open(64,file='dm.dat')
 do i=1,npi
 write(64,*) dm(i),mc(i)
@@ -1126,20 +1412,60 @@ IF(psi.EQ.1)THEN
       slon=slonr
       DEALLOCATE(sradr,slatr,slonr)
    ENDIF
+   if(pvi>0) then
+      pgt = earthr - (gor(1,1)+(nvnr(1,1)-3)*gnsr(1,1))
+      pgb = earthr - gor(1,1)-2*gnsr(1,1)
+    endif
    DO j=1,nspi
       istep=istep+1
       srad(ids(j))=mc(istep)-dm(istep)
+   if(pvi>0) then
+      if (srad(ids(j)) < pgt) then
+        print*,'warning: rad outside (up)',srad(ids(j)),mc(istep),dm(istep)
+        srad(ids(j)) = pgt
+      elseif(srad(ids(j)) > pgb) then
+        print*,'warning: rad outside (down)',srad(ids(j)),mc(istep),dm(istep)
+        srad(ids(j)) = pgb
+      endif
+    endif
    ENDDO
+   if(pvi>0) then
+      pgt = (got(1,1)+(nvnt(1,1)-3)*gnst(1,1))*180.0/pi
+      pgb = (got(1,1)+2*gnst(1,1))*180.0/pi
+    endif
    DO j=1,nspi
       istep=istep+1
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
       slat(ids(j))=mc(istep)+dm(istep)
+   if(pvi>0) then
+      if (slat(ids(j)) > pgt) then
+        print*,'warning: lat outside(north)',slat(ids(j)),mc(istep),dm(istep)
+        slat(ids(j)) = pgt-gnst(1,1)
+      elseif(slat(ids(j)) < pgb) then
+        print*,'warning: lat outside(south)',slat(ids(j)),mc(istep),dm(istep)
+        slat(ids(j)) = pgb+gnst(1,1)
+      endif
+    endif
    ENDDO
+   if(pvi>0) then
+      pgt = (gop(1,1)+(nvnp(1,1)-3)*gnsp(1,1))*180.0/pi
+      pgb = (gop(1,1)+2*gnsp(1,1))*180.0/pi
+    endif
    DO j=1,nspi
       istep=istep+1
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
-      dm(istep)=dm(istep)/cos(slat(ids(j))*180.0/pi)
+      ! bug here, seems very important bug 180*pi-->pi/180
+      dm(istep)=dm(istep)/cos(slat(ids(j))*pi/180.0)
       slon(ids(j))=mc(istep)+dm(istep)
+   if(pvi>0) then
+      if (slon(ids(j)) > pgt) then
+        print*,'warning: lon outside(right)',slon(ids(j)),mc(istep),dm(istep)
+        slon(ids(j)) = pgt-gnsp(1,1)
+      elseif(slon(ids(j)) < pgb) then
+        print*,'warning: lon outside(left)',slon(ids(j)),mc(istep),dm(istep)
+        slon(ids(j)) = pgb+gnsp(1,1)
+      endif
+    endif
    ENDDO
    DO j=1,nspi
       istep=istep+1

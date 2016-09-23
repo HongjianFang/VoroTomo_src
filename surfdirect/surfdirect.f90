@@ -8,6 +8,7 @@
         real :: earthr
         integer numgrid2,numgrid1
         integer nz1,nz2
+        integer invstep
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -18,10 +19,11 @@
   call initialize_interfaces
   print *,'......finished'
 
-	goxd=(90-vgrid(1,1)%lat(vgrid(1,1)%nlat-1)*180/pi)*pi/180
-	gozd=vgrid(1,1)%long(2)
-        nx = vgrid(1,1)%nlat
-        ny = vgrid(1,1)%nlong
+	goxd=(90-vgrid(1,1)%lat(vgrid(1,1)%nlat)*180/pi)*pi/180
+        !print*,vgrid(1,1)%nlat-1,vgrid(1,1)%lat(vgrid(1,1)%nlat-1)
+	gozd=vgrid(1,1)%long(1)
+        nx = vgrid(1,1)%nlong
+        ny = vgrid(1,1)%nlat
         dvxd = vgrid(1,1)%dlat0
         dvzd = vgrid(1,1)%dlong0
         earthr = vgrid(1,1)%r(vgrid(1,1)%nr-1)
@@ -108,6 +110,7 @@
         if(err.eq.0) then
         if(line(1:1).eq.'#') then
         read(line,*) strf,sta1_lat,sta1_lon,period,wavetp,veltp
+        if(sta1_lon<0) sta1_lon=sta1_lon+360
         if(wavetp.eq.2.and.veltp.eq.0) knum=period
         if(wavetp.eq.2.and.veltp.eq.1) knum=kmaxRc+period
         if(wavetp.eq.1.and.veltp.eq.0) knum=kmaxRg+kmaxRc+period
@@ -130,6 +133,7 @@
         knumo=knum
         else
         read(line,*) sta2_lat,sta2_lon,velvalue
+        if(sta2_lon<0) sta2_lon=sta2_lon+360
         istep1=istep1+1
         dall=dall+1
         sta2_lat=(90.0-sta2_lat)*pi/180.0
@@ -146,7 +150,24 @@
         endif
         enddo
         close(87)
+        open(44,file='inviter.in')
+        read(44,*) invstep
+        close(44)
+        if(invstep==1) then
+          open(88,file='otimessurf.dat')
+          write(88,'(i6)') dall
+          do i=1,dall
+            write(88,'(f7.4,4x,f4.2)') obst(i),noiselevel
+          enddo
+          close(88)
+        endif
 
+        numgrid1=0
+        numgrid2=0
+        ngrid1sep=0
+        ngrid2sep=0
+        nz1=0
+        nz2=0
 
     if(n_interfaces==2) then
       allocate(vel(vgrid(1,1)%nlong,vgrid(1,1)%nlat,vgrid(1,1)%nr*2))
@@ -166,6 +187,11 @@
       do m=1,vgrid(1,1)%nr-1
       depz(m) = earthr-vgrid(1,1)%r(vgrid(1,1)%nr-m)
       enddo
+      nz = vgrid(1,1)%nr
+      !print*,depz
+      !print*,vel(5,5,1:nz+2)
+      !print*,vel(5,5,nz+2+1:2*(nz+2))
+      numgrid1 = vgrid(1,1)%nnode
 
     elseif(n_interfaces==3) then
       mface = sum(intrface(2)%r)/size(intrface(2)%r) 
@@ -181,6 +207,11 @@
      ! print*,vgrid(2,1)%r
       depz(ngrid1sep+1:1:-1)=earthr-vgrid(1,1)%r(vgrid(1,1)%nr-1-ngrid1sep:vgrid(1,1)%nr-1)
       depz(nz+1:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+2)
+    numgrid2 = vgrid(2,1)%nnode
+    numgrid1 = vgrid(1,1)%nnode
+        print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
+    print*, ngrid1sep+2,nz+1-ngrid2sep
+    print*,vel(5,5,1:nz+2)
     do m=1,n_vtypes
          do j=1,vgrid(1,m)%nlat
             do k=1,vgrid(1,m)%nlong
@@ -193,10 +224,6 @@
       print*, 'not implemented yet, only for 2 or 3 interfaces'
       stop
     endif
-    print*, ngrid1sep+2,nz+1-ngrid2sep
-    print*,vel(5,5,1:nz+2)
-    numgrid2 = vgrid(2,1)%nnode
-    numgrid1 = vgrid(1,1)%nnode
 !-----------------------------------------------------------------------------------
        !if (vgrid(1,m).r(i)<mface) then
        !  n=2
@@ -208,11 +235,10 @@
 ! kernel (b-spline in vertical direction)
 ! frechet direvitives for surface wave data
 !print*,depz
-!print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
+print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
         open(34,file='frechetsurf.dat')
         open(35,file='ttimessurf.dat')
-        print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
-        call CalSurfG(nx,ny,nz+2,nz1,nz2,vel,dsurf, &
+        call CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrc, &
