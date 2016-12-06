@@ -23,8 +23,8 @@ INTEGER, DIMENSION (100,50) :: paths, velt
 REAL :: depth,lat,long,covdep,covlat,covlon
 REAL :: rlat,rlon,rdep,tt,tterr
 CHARACTER (LEN=10) :: phase
-CHARACTER (LEN=30) :: ifiles,ifiler,ofiles,ofiler,ofilesd
-CHARACTER (LEN=30) :: ifilevg,ifilerd,ofilet,cdum
+CHARACTER (LEN=40) :: ifiles,ifiler,ofiles,ofiler,ofilesd
+CHARACTER (LEN=40) :: ifilevg,ifilerd,ofilet,cdum
 !
 ! nisf = Number of input source files
 ! ns = Number of sources

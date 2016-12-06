@@ -96,7 +96,7 @@
         IF(checkstat > 0)THEN
         WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL wavetype'
         ENDIF
-        allocate(obst(nrc*nsrcsurf*kmax),dsurf(nrc*nsrcsurf*kmax),stat=checkstat)
+        allocate(obst(nrc*nsrcsurf*kmax),noises(nrc*nsrcsurf*kmax),dsurf(nrc*nsrcsurf*kmax),stat=checkstat)
         IF(checkstat > 0)THEN
            WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL obst'
         ENDIF
@@ -143,6 +143,7 @@
         call delsph(sta1_lat,sta1_lon,sta2_lat,sta2_lon,dist)
         !print *,sta1_lat,sta1_lon,sta2_lat,sta2_lon,dist
         obst(dall)=dist/velvalue
+        noises(dall) = dist*noiselevel/velvalue
         nrc1(istep,knum)=istep1
         endif
         else
@@ -157,7 +158,7 @@
           open(88,file='otimessurf.dat')
           write(88,'(i6)') dall
           do i=1,dall
-            write(88,'(f7.4,4x,f4.2)') obst(i),noiselevel
+            write(88,'(f8.4,4x,f7.2)') obst(i),noises(i)
           enddo
           close(88)
         endif
@@ -247,6 +248,7 @@ print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
          close(35)
          print*,'surface wave frechet direvitives done'
 
+        deallocate(obst,noises,depz,dsurf)
  end program
 !-----------------------------------------------------------------------------------
 

@@ -99,6 +99,7 @@ module variable_def
 	REAL, DIMENSION (:), ALLOCATABLE :: dsurf
 	real,dimension(:),allocatable::depz
 	real,dimension(:),allocatable::obst
+	real,dimension(:),allocatable::noises
 	integer,parameter::NP=60
 	real sta1_lat,sta1_lon,sta2_lat,sta2_lon
 	real dist,dcal

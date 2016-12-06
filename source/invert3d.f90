@@ -123,22 +123,25 @@ REAL(KIND=i5) :: mean,std_surf
 
 ! variable definition for lsmr
 integer leniw,lenrw
-real atol,btol
-real conlim
+real(kind=i5) atol,btol
+real(kind=i5) conlim
 integer istop
 integer itnlim
 integer nout
 integer itn
-real acond,anorm,arnorm,rnorm,xnorm
+real(kind=i5) damp,acond,anorm,arnorm,rnorm,xnorm
 integer localSize
 integer,allocatable,dimension(:)::iw,col
-real,allocatable,dimension(:)::rw,dtrav
+real(kind=i5),allocatable,dimension(:)::rw
+real(kind=i5),allocatable,dimension(:)::dtrav
+real(kind=i5),allocatable,dimension(:)::dataweight
 real,allocatable,dimension(:)::norm
-real damp
 integer checkstat
 integer inversionScheme
 integer is1,is2,is3
 character*4 itnum
+real(kind=i5) threshold
+real(kind=i5) surfweight
 
 !----------------------------------------------------------------
 !
@@ -247,6 +250,8 @@ READ(10,*)eta
 READ(10,*)earthr
 read(10,*)surfjoint
 read(10,*)inversionScheme
+read(10,*)threshold
+read(10,*)surfweight
 1 FORMAT(a26)
 CLOSE(10)
 !
@@ -382,7 +387,8 @@ IF(pvi.EQ.1)THEN
          ELSE
             !DO k=1,nvnr(j,i)*nvnt(j,i),nvnp(j,i)
             DO k=1,nvnr(j,i)*nvnt(j,i)*nvnp(j,i)
-               READ(10,*)idm1
+               !READ(10,*)idm1
+               READ(10,*)
             ENDDO
          ENDIF
       ENDDO
@@ -1026,6 +1032,8 @@ allocate(col(nnfd+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating rw'
 allocate(dtrav(ntr+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating dtrav'
+allocate(dataweight(ntr+9*npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating dataweight'
 allocate(norm(npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating norm'
 iw = 0
@@ -1232,13 +1240,38 @@ enddo
 DO i=1,ntr
    dtrav(i)=(dmod(i)-dobs(i))/cd(i)
 ENDDO
+! downweight data with large residual
+mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+dataweight = 1.0
+DO i=1,ntr-ntrsurf
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
+sqrt(real(ntr-ntrsurf)/ntrsurf)*surfweight
+else  
+dataweight(i) = surfweight*sqrt(real(ntr-ntrsurf)/ntrsurf)
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+
+do i = 1,jstep
+rw(i) = rw(i)*dataweight(iw(1+i))
+enddo
 do i=ntr+1,m
   dtrav(i)=0.
 enddo
-        nout = 36
+        nout = 63
         write (itnum,'(I0)') invstep
         open(nout,file='lsmrout'//trim(itnum)//'.txt')
-!print*,nvpi,nipi,npi,m,l,jstep,leniw
 print*,'-----------------------------------------------------'
 print*,'iteration:',invstep
 print*,'min. and max. dws',minval(norm),maxval(norm)
@@ -1251,7 +1284,7 @@ print*,'min. and max. dws',minval(norm),maxval(norm)
     !enddo
     !if(istop==3) print*,'istop = 3, large condition number'
     deallocate(iw,col)
-    deallocate(rw,dtrav,norm)
+    deallocate(rw,dtrav,norm,dataweight)
     close(nout)
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
@@ -1272,11 +1305,11 @@ endif
 endif
 
 
-open(64,file='dm.dat')
-do i=1,npi
-write(64,*) dm(i),mc(i)
-enddo
-close(64)
+!open(64,file='dm.dat')
+!do i=1,npi
+!write(64,*) dm(i),mc(i)
+!enddo
+!close(64)
 !
 ! Now write new model to file
 !
@@ -1413,8 +1446,10 @@ IF(psi.EQ.1)THEN
       DEALLOCATE(sradr,slatr,slonr)
    ENDIF
    if(pvi>0) then
-      pgt = earthr - (gor(1,1)+(nvnr(1,1)-3)*gnsr(1,1))
-      pgb = earthr - gor(1,1)-2*gnsr(1,1)
+      !pgt = earthr - (gor(1,1)+(nvnr(1,1)-3)*gnsr(1,1))
+      !pgb = earthr - gor(1,1)-2*gnsr(1,1)
+      pgt = earthr - (gor(1,1)+(nvnr(1,1)-1)*gnsr(1,1))
+      pgb = earthr - gor(1,1)
     endif
    DO j=1,nspi
       istep=istep+1
@@ -1422,19 +1457,22 @@ IF(psi.EQ.1)THEN
    if(pvi>0) then
       if (srad(ids(j)) < pgt) then
         print*,'warning: rad outside (up)',srad(ids(j)),mc(istep),dm(istep)
-        srad(ids(j)) = pgt
+        srad(ids(j)) = pgt+gnsr(1,1)
       elseif(srad(ids(j)) > pgb) then
         print*,'warning: rad outside (down)',srad(ids(j)),mc(istep),dm(istep)
-        srad(ids(j)) = pgb
+        srad(ids(j)) = pgb-gnsr(1,1)
       endif
     endif
    ENDDO
    if(pvi>0) then
-      pgt = (got(1,1)+(nvnt(1,1)-3)*gnst(1,1))*180.0/pi
-      pgb = (got(1,1)+2*gnst(1,1))*180.0/pi
+      !pgt = (got(1,1)+(nvnt(1,1)-3)*gnst(1,1))*180.0/pi
+      !pgb = (got(1,1)+2*gnst(1,1))*180.0/pi
+      pgt = (got(1,1)+(nvnt(1,1)-1)*gnst(1,1))*180.0/pi
+      pgb = got(1,1)*180.0/pi
     endif
    DO j=1,nspi
       istep=istep+1
+! dis/R*180/pi  rad-->degree
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
       slat(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
@@ -1448,14 +1486,17 @@ IF(psi.EQ.1)THEN
     endif
    ENDDO
    if(pvi>0) then
-      pgt = (gop(1,1)+(nvnp(1,1)-3)*gnsp(1,1))*180.0/pi
-      pgb = (gop(1,1)+2*gnsp(1,1))*180.0/pi
+      !pgt = (gop(1,1)+(nvnp(1,1)-3)*gnsp(1,1))*180.0/pi
+      !pgb = (gop(1,1)+2*gnsp(1,1))*180.0/pi
+      pgt = (gop(1,1)+(nvnp(1,1)-1)*gnsp(1,1))*180.0/pi
+      pgb = gop(1,1)*180.0/pi
     endif
    DO j=1,nspi
       istep=istep+1
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
       ! bug here, seems very important bug 180*pi-->pi/180
-      dm(istep)=dm(istep)/cos(slat(ids(j))*pi/180.0)
+      ! degree-->rad for cos
+      dm(istep)=dm(istep)/cos(slat(ids(j))*pi/180)
       slon(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
       if (slon(ids(j)) > pgt) then

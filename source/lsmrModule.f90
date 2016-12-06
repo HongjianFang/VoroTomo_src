@@ -40,7 +40,7 @@ contains
     integer,  intent(in) :: leniw
     integer,  intent(in) :: lenrw
     integer,  intent(in) :: iw(leniw)
-    real,     intent(in) :: rw(lenrw)
+    real(dp),     intent(in) :: rw(lenrw)
 
     integer,  intent(in)  :: m, n, itnlim, localSize, nout
     integer,  intent(out) :: istop, itn
