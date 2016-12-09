@@ -49,7 +49,10 @@ INTEGER :: ddt,ddp,dnsr,dnst,dewr,dewp,nrs,nrp
 INTEGER :: mnr,mnt,mnp,vgid,ppors,nvgt,ips,psr,maxpth
 INTEGER :: idmnr,idmnt,idmnp,penp,ngch,ngcd
 INTEGER, PARAMETER :: maxr=500000000
-REAL(KIND=i10) :: lft,rgt,btm,top,sldep,slns,slew
+REAL(KIND=i10) :: lft,rgt,btm,top
+integer,parameter:: nslice=4
+character*4 fileno
+REAL(KIND=i10) :: sldep(nslice),slns(nslice),slew(nslice)
 REAL(KIND=i10) :: rd1,rd2,rd3,rd4,rd5,rd6,rd7,rd8,u,v,w
 REAL(KIND=i10) :: rdep,rlat,rlong
 REAL(KIND=i10) :: deltas,deltaskm,azim
@@ -563,15 +566,6 @@ ENDIF
 !
 IF(extrds.EQ.1)THEN
 !
-! Make sure slice lies within model
-!
-  IF(sldep.GT.gor(1).OR.sldep.LT.gor(1)-gsr(1)*(nnr(1)-1))THEN
-     WRITE(6,*)'Requested depth slice lies outside'
-     WRITE(6,*)'Model bounds!'
-     WRITE(6,*)'TERMINATING PROGRAM!!!'
-     STOP
-  ENDIF
-!
 ! Allocate memory to velocity grid array
 !
   nnx=(mnt-1)*ddt+1
@@ -590,6 +584,17 @@ IF(extrds.EQ.1)THEN
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL lay'
   ENDIF
+!
+! Make sure slice lies within model
+!
+do ii=1,nslice
+  IF(sldep(ii).GT.gor(1).OR.sldep(ii).LT.gor(1)-gsr(1)*(nnr(1)-1))THEN
+     WRITE(6,*)'Requested depth slice lies outside'
+     WRITE(6,*)'Model bounds!'
+     WRITE(6,*)'TERMINATING PROGRAM!!!'
+     STOP
+  ENDIF
+
 !
 ! Loop through all the layers and determine which layer each
 ! point lies in.
@@ -625,7 +630,7 @@ IF(extrds.EQ.1)THEN
         ENDDO
         DO j=1,nnz
            DO k=1,nnx
-              IF(sldep.LT.inta(k,j))lay(k,j)=i
+              IF(sldep(ii).LT.inta(k,j))lay(k,j)=i
            ENDDO
         ENDDO
      ENDDO
@@ -640,8 +645,8 @@ IF(extrds.EQ.1)THEN
   DO j=1,nnz
      DO k=1,nnx
         idm3=lay(k,j)
-        rnode=INT((gor(idm3)-sldep)/gsr(idm3))+1
-        u=ABS(gor(idm3)-sldep-(rnode-1)*gsr(idm3))/gsr(idm3)
+        rnode=INT((gor(idm3)-sldep(ii))/gsr(idm3))+1
+        u=ABS(gor(idm3)-sldep(ii)-(rnode-1)*gsr(idm3))/gsr(idm3)
         IF(rnode.EQ.nnr(idm3))THEN
            rnode=rnode-1
            u=1.0
@@ -666,13 +671,15 @@ IF(extrds.EQ.1)THEN
 !
 ! Now write out depth slice to file.
 !
-  OPEN(UNIT=30,FILE=ofiledv,STATUS='unknown')
+  write (fileno,'(I0)') ii
+  OPEN(UNIT=30,FILE=trim(ofiledv)//trim(fileno),STATUS='unknown')
   DO i=1,nnz
      DO j=nnx,1,-1
          WRITE(30,*)vela(j,i)
      ENDDO
   ENDDO
   CLOSE(30)
+enddo
   DEALLOCATE(vela,lay, STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with DEALLOCATE: PROGRAM slice: REAL vela,lay,vi'
@@ -682,15 +689,6 @@ ENDIF
 ! Extract N-S slice if required
 !
 IF(extrnss.EQ.1)THEN
-!
-! Make sure slice lies within model
-!
-  IF(slns.LT.gop(1).OR.slns.GT.gop(1)+gsp(1)*(nnp(1)-1))THEN
-     WRITE(6,*)'Requested N-S slice lies outside'
-     WRITE(6,*)'Model bounds!'
-     WRITE(6,*)'TERMINATING PROGRAM!!!'
-     STOP
-  ENDIF
 !
 ! Allocate memory to velocity grid array
 !
@@ -711,6 +709,17 @@ IF(extrnss.EQ.1)THEN
      WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL lay'
   ENDIF
 !
+! Make sure slice lies within model
+!
+do ii = 1,nslice
+  IF(slns(ii).LT.gop(1).OR.slns(ii).GT.gop(1)+gsp(1)*(nnp(1)-1))THEN
+     WRITE(6,*)'Requested N-S slice lies outside'
+     WRITE(6,*)'Model bounds!'
+     WRITE(6,*)'TERMINATING PROGRAM!!!'
+     STOP
+  ENDIF
+
+!
 ! Loop through all the layers and determine which layer each
 ! point lies in.
 !
@@ -724,8 +733,8 @@ IF(extrnss.EQ.1)THEN
 !
 !       Call bspline subroutine to compute depth to interface i.
 !
-        rnode=INT((slns-gop(i))/gsip)+1
-        u=ABS(slns-gop(i)-(rnode-1)*gsip)/gsip
+        rnode=INT((slns(ii)-gop(i))/gsip)+1
+        u=ABS(slns(ii)-gop(i)-(rnode-1)*gsip)/gsip
         IF(rnode.EQ.ninp)THEN
            rnode=rnode-1
            u=1.0
@@ -759,8 +768,8 @@ IF(extrnss.EQ.1)THEN
   DO j=1,nnz
      DO k=1,nnx
         idm3=lay(k,j)
-        rnode=INT((slns-gop(idm3))/gsp(idm3))+1
-        u=ABS(slns-gop(idm3)-(rnode-1)*gsp(idm3))/gsp(idm3)
+        rnode=INT((slns(ii)-gop(idm3))/gsp(idm3))+1
+        u=ABS(slns(ii)-gop(idm3)-(rnode-1)*gsp(idm3))/gsp(idm3)
         IF(rnode.EQ.nnp(idm3))THEN
            rnode=rnode-1
            u=1.0
@@ -785,7 +794,8 @@ IF(extrnss.EQ.1)THEN
 !
 ! Now write out N-S slice to file.
 !
-  OPEN(UNIT=30,FILE=ofilensv,STATUS='unknown')
+  write (fileno,'(I0)') ii
+  OPEN(UNIT=30,FILE=trim(ofilensv)//trim(fileno),STATUS='unknown')
   DO i=1,nnz
      DO j=nnx,1,-1
         WRITE(30,*)vela(j,i)
@@ -795,13 +805,13 @@ IF(extrnss.EQ.1)THEN
 !
 ! Compute interface cross-sections and write to file
 !
-  OPEN(UNIT=30,FILE=ofilensi,STATUS='unknown')
+  OPEN(UNIT=30,FILE=trim(ofilensi)//trim(fileno),STATUS='unknown')
   ALLOCATE(inta(1,nnz), STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
   ENDIF
-  rnode=INT((slns-gop(1))/gsip)+1
-  u=ABS(slns-gop(1)-(rnode-1)*gsip)/gsip
+  rnode=INT((slns(ii)-gop(1))/gsip)+1
+  u=ABS(slns(ii)-gop(1)-(rnode-1)*gsip)/gsip
   IF(rnode.EQ.ninp)THEN
      rnode=rnode-1
      u=1.0
@@ -822,6 +832,7 @@ IF(extrnss.EQ.1)THEN
      WRITE(30,'(a1)')sep
   ENDDO
   CLOSE(30)
+enddo
   DEALLOCATE(vela,lay,inta, STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with DEALLOCATE: PROGRAM slice: REAL vela,lay,inta'
@@ -831,15 +842,7 @@ ENDIF
 ! Extract E-W slice if required
 !
 IF(extrews.EQ.1)THEN
-!
-! Make sure slice lies within model
-!
-  IF(slew.GT.got(1).OR.slew.LT.got(1)-gst(1)*(nnt(1)-1))THEN
-     WRITE(6,*)'Requested E-W slice lies outside'
-     WRITE(6,*)'Model bounds!'
-     WRITE(6,*)'TERMINATING PROGRAM!!!'
-     STOP
-  ENDIF
+
 !
 ! Allocate memory to velocity grid array
 !
@@ -859,6 +862,16 @@ IF(extrews.EQ.1)THEN
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL lay'
   ENDIF
+do ii = 1,nslice
+!
+! Make sure slice lies within model
+!
+  IF(slew(ii).GT.got(1).OR.slew(ii).LT.got(1)-gst(1)*(nnt(1)-1))THEN
+     WRITE(6,*)'Requested E-W slice lies outside'
+     WRITE(6,*)'Model bounds!'
+     WRITE(6,*)'TERMINATING PROGRAM!!!'
+     STOP
+  ENDIF
 !
 ! Loop through all the layers and determine which layer each
 ! point lies in.
@@ -873,8 +886,8 @@ IF(extrews.EQ.1)THEN
 !
 !       Call bspline subroutine to compute depth to interface i.
 !
-        rnode=INT((got(i)-slew)/gsit)+1
-        u=ABS(got(i)-slew-(rnode-1)*gsit)/gsit
+        rnode=INT((got(i)-slew(ii))/gsit)+1
+        u=ABS(got(i)-slew(ii)-(rnode-1)*gsit)/gsit
         IF(rnode.EQ.nint)THEN
            rnode=rnode-1
            u=1.0
@@ -907,8 +920,8 @@ IF(extrews.EQ.1)THEN
   DO j=1,nnz
      DO k=1,nnx
         idm3=lay(k,j)
-        rnode=INT((got(idm3)-slew)/gst(idm3))+1
-        u=ABS(got(idm3)-slew-(rnode-1)*gst(idm3))/gst(idm3)
+        rnode=INT((got(idm3)-slew(ii))/gst(idm3))+1
+        u=ABS(got(idm3)-slew(ii)-(rnode-1)*gst(idm3))/gst(idm3)
         IF(rnode.EQ.nnt(idm3))THEN
            rnode=rnode-1
            u=1.0
@@ -933,7 +946,8 @@ IF(extrews.EQ.1)THEN
 !
 ! Now write out E-W slice to file.
 !
-  OPEN(UNIT=30,FILE=ofileewv,STATUS='unknown')
+  write (fileno,'(I0)') ii
+  OPEN(UNIT=30,FILE=trim(ofileewv)//trim(fileno),STATUS='unknown')
   DO i=1,nnz
      DO j=nnx,1,-1
         WRITE(30,*)vela(j,i)
@@ -943,13 +957,13 @@ IF(extrews.EQ.1)THEN
 !
 ! Compute interface cross-sections and write to file
 !
-  OPEN(UNIT=30,FILE=ofileewi,STATUS='unknown')
+  OPEN(UNIT=30,FILE=trim(ofileewi)//trim(fileno),STATUS='unknown')
   ALLOCATE(inta(1,nnz), STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
   ENDIF
-  rnode=INT((got(1)-slew)/gsit)+1
-  u=ABS(got(1)-slew-(rnode-1)*gsit)/gsit
+  rnode=INT((got(1)-slew(ii))/gsit)+1
+  u=ABS(got(1)-slew(ii)-(rnode-1)*gsit)/gsit
   IF(rnode.EQ.nint)THEN
      rnode=rnode-1
      u=1.0
@@ -970,6 +984,7 @@ IF(extrews.EQ.1)THEN
      WRITE(30,'(a1)')sep
   ENDDO
   CLOSE(30)
+enddo
   DEALLOCATE(vela,lay,inta, STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with DEALLOCATE: PROGRAM slice: REAL vela,lay,inta'

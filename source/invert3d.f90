@@ -142,6 +142,8 @@ integer is1,is2,is3
 character*4 itnum
 real(kind=i5) threshold
 real(kind=i5) surfweight
+integer nnode
+integer vpvs
 
 !----------------------------------------------------------------
 !
@@ -252,6 +254,7 @@ read(10,*)surfjoint
 read(10,*)inversionScheme
 read(10,*)threshold
 read(10,*)surfweight
+read(10,*)vpvs
 1 FORMAT(a26)
 CLOSE(10)
 !
@@ -837,7 +840,8 @@ write(6,*)'no. of non-zero in G', nnfd
 write(6,*)'data for body wave & surface wave', ntr, ntrsurf
 endif
 !----------------------------------------------------------------
-
+! hidden bug, only works for 1 layer...
+nnode = nvpi/2
 DO i=1,ntr
    READ(10,*)idm1,idm2,idm3,idm4,dobs(istep),cd(istep)
 !
@@ -896,6 +900,9 @@ DO i=1,ntr
       jup=jstep+nrow-1
       DO j=jstep,jup
          READ(30,*)fcoln(j),frech(j)
+if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
+frech(j) = frech(j)*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+endif
       ENDDO
       IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
          jstep=jup
@@ -929,6 +936,9 @@ IF(nrow.GT.0)THEN
    jup=jstep+nrow-1
    DO j=jstep,jup
       READ(36,*)fcoln(j),frech(j)
+if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
+frech(j) = frech(j)*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+endif
    ENDDO
    IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
       jstep=jup
@@ -1226,10 +1236,10 @@ enddo
     leniw = 2*jstep+1
     lenrw = jstep 
     dm = 0
-    atol = 1e-3
-    btol = 1e-3
+    atol = 1e-5
+    btol = 1e-5
     conlim = 100
-    itnlim = 200
+    itnlim = 500
     istop = 0
     anorm = 0.0
     acond = 0.0
@@ -1321,6 +1331,8 @@ IF(pvi.EQ.1)THEN
    ENDIF
    OPEN(UNIT=10,FILE=vgfile,STATUS='unknown')
    WRITE(10,*)ni-1,nvgt
+   OPEN(UNIT=11,FILE=trim(vgfile)//trim('vpvs'),STATUS='unknown')
+   WRITE(11,*)ni-1,nvgt
 
   ! print*,npi
   ! print*
@@ -1344,6 +1356,14 @@ IF(pvi.EQ.1)THEN
                   DO m=1,nvnr(j,i)
                      istep=istep+1
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
+                     if(vpvs==1) then
+                     if(istep<=nnode) then
+                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
+                     else
+                     veln(m,l,k,j,i)=mc(istep-nnode)/mc(istep)+dm(istep)
+                     veln(m,l,k,j,i) = mc(istep-nnode)/veln(m,l,k,j,i)
+                     endif
+                     endif
                      IF(veln(m,l,k,j,i).LT.mpv)veln(m,l,k,j,i)=mpv
                   ENDDO
                ENDDO
@@ -1367,6 +1387,27 @@ IF(pvi.EQ.1)THEN
       ENDDO
    ENDDO
    CLOSE(10)
+! write out vp/vs
+   DO i=1,nvgt
+     DO j=1,ni-1
+         WRITE(11,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
+         WRITE(11,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
+         WRITE(11,*)gor(j,i),got(j,i),gop(j,i)
+         DO k=1,nvnr(j,i)
+            DO l=1,nvnt(j,i)
+               DO m=1,nvnp(j,i)
+                if(i==1) then
+                  WRITE(11,*)veln(k,l,m,j,i)
+                else
+                  write(11,*)veln(k,l,m,j,i-1)/veln(k,l,m,j,i)
+                endif
+               ENDDO
+            ENDDO
+         ENDDO
+      ENDDO
+   ENDDO
+   CLOSE(11)
+
 ENDIF
 IF(pii.EQ.1)THEN
    IF(invstep.EQ.1)THEN
