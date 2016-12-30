@@ -1034,8 +1034,8 @@ dvxd=dvxdf
 dvzd=dvzdf
 nxf=ny
 nyf=nx
-nvx=nxf
-nvz=nyf
+nvx=nxf-2
+nvz=nyf-2
 nparpi=nx*ny*nz
 
 ALLOCATE(velv(0:nvz+1,0:nvx+1), STAT=checkstat)
@@ -1169,7 +1169,7 @@ call gridder(velf)
 !     Back up coarse velocity grid to a holding matrix
 !
      ALLOCATE(velnb(nnz,nnx))
-      velnb=veln
+      velnb(1:nnz,1:nnx)=veln(1:nnz,1:nnx)
       nnxb=nnx
       nnzb=nnz
       dnxb=dnx
@@ -1356,19 +1356,37 @@ dsurf(count1)=cbst1
       nnzero=0.
         do jj=1,nx
         do kk=1,ny
-        if (abs(fdm(jj,kk))>ftol) then
+        if (abs(fdm(jj-1,kk-1))>1.e-5) then
         coe_rho=(1.6612-0.4721*2*vel(jj,ny-kk+1,2:nz)+ &
         0.0671*3*vel(jj,ny-kk+1,2:nz)**2-0.0043*4*vel(jj,ny-kk+1,2:nz)**3+ &
         0.000106*5*vel(jj,ny-kk+1,2:nz)**4)
         row((jj-1)*ny*nz+(ny-kk)*nz+nz-1:(jj-1)*ny*nz+(ny-kk)*nz+1:-1)= &
+        !row((nz-2)*nx*ny+(ny-kk-1)*nx+jj:(ny-kk-1)*nx+jj:-1*nx*ny)= &
         (sen_rho((jj-1)*ny+kk,knumi,1:nz-1)*coe_rho(1:nz-1)+ &
-        sen_vp((jj-1)*ny+kk,knumi,1:nz-1))*fdm(jj,kk)
+        sen_vp((jj-1)*ny+kk,knumi,1:nz-1))*fdm(jj-1,kk-1)
         !sen_vp((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
         row(nparpi+(jj-1)*ny*nz+(ny-kk)*nz+nz-1:nparpi+(jj-1)*ny*nz+(ny-kk)*nz+1:-1) = &
-        sen_vs((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj,kk)
+        !row(nparpi+(nz-2)*nx*ny+(ny-kk-1)*nx+jj:nparpi+(ny-kk-1)*nx+jj:-1*nx*ny)= &
+        sen_vs((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
         endif
         enddo
         enddo
+        !do jj=1,nvz
+        !do kk=1,nvx
+        !if (abs(fdm(jj,kk))>ftol) then
+        !coe_rho=(1.6612-0.4721*2*vel(jj+1,ny-kk,2:nz)+ &
+        !0.0671*3*vel(jj+1,ny-kk,2:nz)**2-0.0043*4*vel(jj+1,ny-kk,2:nz)**3+ &
+        !0.000106*5*vel(jj+1,ny-kk,2:nz)**4)
+        !row((jj)*ny*nz+(ny-kk-1)*nz+nz-1:(jj)*ny*nz+(ny-kk-1)*nz+1:-1)= &
+        !(sen_rho((jj)*ny+kk+1,knumi,1:nz-1)*coe_rho(1:nz-1)+ &
+        !sen_vp((jj)*ny+kk+1,knumi,1:nz-1))*fdm(jj,kk)
+        !!sen_vp((jj-1)*ny+kk,knumi,1:nz-1)*fdm(jj-1,kk-1)
+        !row(nparpi+(jj)*ny*nz+(ny-kk-1)*nz+nz-1:nparpi+(jj)*ny*nz+(ny-kk-1)*nz+1:-1) = &
+        !sen_vs((jj)*ny+kk+1,knumi,1:nz-1)*fdm(jj,kk)
+        !endif
+        !enddo
+        !enddo
+
 
       write(34,*) count1,count(abs(row)>ftol)
       !print*,nx,ny,nz,nparpi
@@ -1507,13 +1525,13 @@ double precision pv(*)
 !READ(10,*)goxd,gozd
 !READ(10,*)dvxd,dvzd
 !count1=0
-velv = sum(pv(1:nvx*nvz))/(nvx*nvz)
-DO i=1,nvz
-   DO j=1,nvx
+!velv = sum(pv(1:nvx*nvz))/(nvx*nvz)
+DO i=0,nvz+1
+   DO j=0,nvx+1
 !	count1=count1+1
 !      READ(10,*)velv(i,j)
 !	velv(i,j)=real(pv(count1))
-	velv(i,j)=real(pv(i*nvx+j))
+	velv(i,j)=real(pv(i*(nvx+2)+j+1))
    ENDDO
 ENDDO
 !CLOSE(10)

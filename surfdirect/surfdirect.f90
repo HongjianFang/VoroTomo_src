@@ -9,6 +9,8 @@
         integer numgrid2,numgrid1
         integer nz1,nz2
         integer invstep
+        integer syn
+        real noisethresh
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -19,9 +21,11 @@
   call initialize_interfaces
   print *,'......finished'
 
-	goxd=(90-vgrid(1,1)%lat(vgrid(1,1)%nlat)*180/pi)*pi/180
+	goxd=(90-vgrid(1,1)%lat(vgrid(1,1)%nlat-1)*180/pi)*pi/180
+	!goxd=vgrid(1,1)%lat(vgrid(1,1)%nlat-1)
         !print*,vgrid(1,1)%nlat-1,vgrid(1,1)%lat(vgrid(1,1)%nlat-1)
-	gozd=vgrid(1,1)%long(1)
+	gozd=vgrid(1,1)%long(2)
+        print*, 90-goxd*180/pi,gozd*180/pi
         nx = vgrid(1,1)%nlong
         ny = vgrid(1,1)%nlat
         dvxd = vgrid(1,1)%dlat0
@@ -80,6 +84,8 @@
 	write(*,*) 'periods range(seconds)'
 	write(*,'(30f5.2)') (tLg(i),i=1,kmaxLg)
 	endif
+        read(64,*)syn
+        read(64,*)noisethresh
 	close(64)
         kmax=kmaxRc+kmaxRg+kmaxLc+kmaxLg
 
@@ -144,6 +150,7 @@
         !print *,sta1_lat,sta1_lon,sta2_lat,sta2_lon,dist
         obst(dall)=dist/velvalue
         noises(dall) = dist*noiselevel/velvalue
+        if(noises(dall)<noisethresh) noises(dall) = noisethresh
         nrc1(istep,knum)=istep1
         endif
         else
@@ -154,7 +161,7 @@
         open(44,file='inviter.in')
         read(44,*) invstep
         close(44)
-        if(invstep==1) then
+        if(invstep==1.and.syn==0) then
           open(88,file='otimessurf.dat')
           write(88,'(i6)') dall
           do i=1,dall
@@ -236,7 +243,7 @@
 ! kernel (b-spline in vertical direction)
 ! frechet direvitives for surface wave data
 !print*,depz
-print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
+!print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
         open(34,file='frechetsurf.dat')
         open(35,file='ttimessurf.dat')
         call CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &

@@ -832,8 +832,9 @@ do ii = 1,nslice
      WRITE(30,'(a1)')sep
   ENDDO
   CLOSE(30)
+  DEALLOCATE(inta, STAT=checkstat)
 enddo
-  DEALLOCATE(vela,lay,inta, STAT=checkstat)
+  DEALLOCATE(vela,lay, STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with DEALLOCATE: PROGRAM slice: REAL vela,lay,inta'
   ENDIF

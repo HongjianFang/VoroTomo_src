@@ -350,6 +350,10 @@ ENDIF
 ! Start off by reading in complete velocity grid if velocity
 ! parameters are to be inverted for,
 ! 
+mvnp=0
+mvnr=0
+mvnt=0
+ntels=0
 IF(pvi.EQ.1)THEN
 !
 !  Start with the reference velocity grid
@@ -729,6 +733,9 @@ ENDIF
 ! -1.0 by fm3d. Note that reflection matching, which is a feature
 ! of fm3d, is not currently supported by this code.
 !
+nnfd = 0
+ntr = 0
+if(surfjoint==0.or.surfjoint==2) then
 OPEN(UNIT=10,FILE=otfile,STATUS='old')
 OPEN(UNIT=20,FILE=mtfile,STATUS='old')
 READ(10,*)ntr
@@ -765,7 +772,6 @@ CLOSE(30)
 ! number of non-zeo elements.
 !
 OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
-nnfd=0
 DO i=1,ntr
    READ(30,*)idm1,idm2,idm3,idm4,nrow
    nnfd=nnfd+nrow
@@ -776,6 +782,7 @@ DO i=1,ntr
    ENDIF
 ENDDO
 CLOSE(30)
+endif
 
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
@@ -783,7 +790,8 @@ CLOSE(30)
 frdatfilesurf = 'frechetsurf.dat'
 otfilesurf = 'otimessurf.dat'
 mtfilesurf = 'mtimessurf.dat'
-if (surfjoint == 1) then
+ntrsurf = 0
+if (surfjoint == 1.or.surfjoint==2) then
 OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
 OPEN(UNIT=35,FILE=otfilesurf,STATUS='old')
 OPEN(UNIT=34,FILE=mtfilesurf,STATUS='old')
@@ -800,12 +808,19 @@ DO i=1,ntrsurf
    ENDIF
 ENDDO
 CLOSE(30)
-ntr = ntr+ntrsurf
 endif
+ntr = ntr+ntrsurf
 !----------------------------------------------------------------
 
 ALLOCATE(frech(nnfd),fcoln(nnfd),cnfe(0:ntr))
 ALLOCATE(dobs(ntr),dmod(ntr),cd(ntr))
+
+nnode = nvpi/2
+idm2o=0
+jstep=0
+kstep=0
+if(surfjoint==0.or.surfjoint==2) then
+
 OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
 !
 ! If teleseismic sources exist, we need to
@@ -830,19 +845,8 @@ isum=0
 iswt=0
 isw2=0
 
-
-! hongjian fang @ethz... adding surface wave data
-!----------------------------------------------------------------
-if (surfjoint == 1) then
-ntr = ntr-ntrsurf
-WRITE(6,*)'------------------------------------------------------------------'
-write(6,*)'no. of non-zero in G', nnfd
-write(6,*)'data for body wave & surface wave', ntr, ntrsurf
-endif
-!----------------------------------------------------------------
-! hidden bug, only works for 1 layer...
-nnode = nvpi/2
-DO i=1,ntr
+! hidden bug, invert for vp/vs,  only works for 1 layer...
+DO i=1,ntr-ntrsurf
    READ(10,*)idm1,idm2,idm3,idm4,dobs(istep),cd(istep)
 !
 !  Apply source time correction if required
@@ -893,7 +897,9 @@ DO i=1,ntr
    ENDIF
    IF(dobs(istep).LT.-50.0)iswt=0
    READ(30,*)idm1,idm2,idm3,idm4,nrow
+   if(inversionScheme==1) then
    cd(istep)=cd(istep)**2
+   endif
    cnfe(istep)=jstep+nrow
    IF(nrow.GT.0)THEN
       jstep=jstep+1
@@ -919,17 +925,27 @@ endif
    ENDIF
    iswt=0
 ENDDO
-
+CLOSE(10)
+CLOSE(20)
+CLOSE(30)
+IF(ntels.GT.0)CLOSE(40)
+endif ! for data type (surfjoint==0 or 2)
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
 !print*,istep,jstep
-if (surfjoint == 1) then
+if (surfjoint==1) then
+istep=1
+jstep=0
+endif
+if (surfjoint == 1 .or. surfjoint == 2) then
 OPEN(UNIT=36,FILE=frdatfilesurf,STATUS='old')
 do i=1,ntrsurf
 read(34,*) dmod(istep)
 read(35,*) dobs(istep),cd(istep)
 READ(36,*)idm1,nrow
+if(inversionScheme==1) then
 cd(istep)=cd(istep)**2
+endif
 cnfe(istep)=jstep+nrow
 IF(nrow.GT.0)THEN
    jstep=jstep+1
@@ -953,10 +969,22 @@ enddo
 CLOSE(34)
 CLOSE(35)
 CLOSE(36)
+
 mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
 std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
 write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
-endif
+
+endif ! for data type (surfjoint==1 or 2)
+
+! hongjian fang @ethz... adding surface wave data
+!----------------------------------------------------------------
+!if (surfjoint == 1) then
+!ntr = ntr-ntrsurf
+WRITE(6,*)'------------------------------------------------------------------'
+write(6,*)'no. of non-zero in G', nnfd
+write(6,*)'data for body wave & surface wave', ntr-ntrsurf, ntrsurf
+!endif
+!----------------------------------------------------------------
 
 !----------------------------------------------------------------
 
@@ -989,10 +1017,6 @@ IF(rmtr.EQ.1.AND.kstep.GT.0)THEN
       IF(istel(i).GT.0)dmod(i)=dmod(i)-mtmean(istel(i))
    ENDDO
 ENDIF
-CLOSE(10)
-CLOSE(20)
-CLOSE(30)
-IF(ntels.GT.0)CLOSE(40)
 !
 ! Now construct the transpose of the Frechet matrix
 !
@@ -1193,7 +1217,7 @@ ENDIF
 if (nspi>0) then
   do i=1,nspi
     iw(1+jstep+i) = istep
-    rw(jstep+i) = 30.0*epss1
+    rw(jstep+i) = 3.0*epss1
     col(jstep+i) = nvpi+nipi+i
     istep = istep+1
   enddo
@@ -1228,9 +1252,10 @@ do i=1,npi
   norm(i) = sqrt(norm(i)/m)
 enddo
 
-!do i = 1,jstep
-!  rw(i) = rw(i)/norm(iw(1+jstep+i))
-!enddo
+! normilize each column to use a single damping
+do i = 1,jstep
+  rw(i) = rw(i)/norm(iw(1+jstep+i))
+enddo
 
 
     leniw = 2*jstep+1
@@ -1250,17 +1275,34 @@ enddo
 DO i=1,ntr
    dtrav(i)=(dmod(i)-dobs(i))/cd(i)
 ENDDO
+print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
 ! downweight data with large residual
+dataweight = 1.0
+if(surfjoint==0 .or.surfjoint==2) then
 mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
 std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-dataweight = 1.0
 DO i=1,ntr-ntrsurf
 if (abs(dtrav(i))>threshold*std_surf) then
 dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
 endif
 dtrav(i)=dtrav(i)*dataweight(i)
 ENDDO
+endif
 
+if(surfjoint==1) then
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+!print*,mean,std_surf
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+endif
+
+
+if(surfjoint==2) then
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
 DO i=ntr-ntrsurf+1,ntr
@@ -1272,6 +1314,7 @@ dataweight(i) = surfweight*sqrt(real(ntr-ntrsurf)/ntrsurf)
 endif
 dtrav(i)=dtrav(i)*dataweight(i)
 ENDDO
+endif
 
 do i = 1,jstep
 rw(i) = rw(i)*dataweight(iw(1+i))
@@ -1289,9 +1332,9 @@ print*,'min. and max. dws',minval(norm),maxval(norm)
       atol, btol, conlim, itnlim, localSize, nout,&
       dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
     dm = -dm
-    !do i = 1,npi
-    !  dm(i) = dm(i)/norm(i)
-    !enddo
+    do i = 1,npi
+      dm(i) = dm(i)/norm(i)
+    enddo
     !if(istop==3) print*,'istop = 3, large condition number'
     deallocate(iw,col)
     deallocate(rw,dtrav,norm,dataweight)
@@ -1582,8 +1625,8 @@ DEALLOCATE(frech,fcoln,cnfe)
 DEALLOCATE(tfrech,tfcoln,tcnfe)
 DEALLOCATE(dobs,dmod,cd)
 DEALLOCATE(mo,mc,cm,ecmi,dm)
-DEALLOCATE(paths,patht)
-DEALLOCATE(tsid)
+!DEALLOCATE(paths,patht)
+!DEALLOCATE(tsid)
 IF(pvi.EQ.1)THEN
    DEALLOCATE(veln)
    DEALLOCATE(nvnr,nvnt,nvnp)
@@ -2051,6 +2094,7 @@ n=subdim
 g=0.0
 scale=0.0
 anorm=0.0
+nm = 0
 DO i=1,n
    l=i+1
    rv1(i)=scale*g
@@ -2216,7 +2260,7 @@ DO k=n,1,-1
          ENDIF
          EXIT
       ENDIF
-      IF(its.EQ.30)PAUSE 'No convergence in svdcmp!'
+      IF(its.EQ.30)print*, 'No convergence in svdcmp!'
       x=w(l)
       nm=k-1
       y=w(nm)
@@ -2353,6 +2397,7 @@ REAL(KIND=i5), DIMENSION (n) :: vv
 REAL(KIND=i5), DIMENSION (n,n) :: a
 REAL(KIND=i5) :: aamax,sum,dum
 REAL(KIND=i5), PARAMETER :: tiny=1.0e-20
+imax = 0
 DO i=1,n
    aamax=0.0
    DO j=1,n

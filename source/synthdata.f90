@@ -17,6 +17,8 @@ REAL(KIND=i10) :: tt,cv,rd1,ttpert,sdgn,sdgnl,sdgnt,vgn
 REAL(KIND=i10), DIMENSION(100) :: paths,patht
 REAL, EXTERNAL :: gasdev
 CHARACTER(LEN=30) :: ofile,ifile,scfile,rtfile
+integer, dimension(:),allocatable::datatype
+real(kind=i10) sdgnlp,sdgnls
 !
 ! ifile = Input "observed" time file
 ! ofile = Output "observed" time file
@@ -48,11 +50,12 @@ READ(10,'(a26)')scfile
 READ(10,'(a26)')rtfile
 READ(10,*)ttpert
 READ(10,*)agn
-READ(10,*)sdgnl
+READ(10,*)sdgnlp,sdgnls
 READ(10,*)sdgnt
 READ(10,*)wwsd
 READ(10,*)rseed
 CLOSE(10)
+sdgn = 0
 !
 ! Determine number of receivers
 !
@@ -70,7 +73,6 @@ OPEN(UNIT=10,FILE=ifile,STATUS='old')
 ! Determine if teleseisms are present
 !
 telp=0
-tsid=0
 OPEN(UNIT=30,FILE=scfile,STATUS='old')
 READ(30,*)ns
 ALLOCATE(tsid(ns))
@@ -90,6 +92,17 @@ DO i=1,ns
    ENDDO
 ENDDO
 CLOSE(30)
+open(unit=30,file='receivers.in',status='old')
+read(30,*)nr
+allocate(datatype(nr))
+do i=1,nr
+read(30,*)
+read(30,*)
+read(30,*)
+read(30,*)datatype(i)
+!write(*,*)datatype(i)
+enddo
+close(30)
 OPEN(UNIT=10,FILE=ifile,STATUS='old')
 OPEN(UNIT=20,FILE=ofile,STATUS='unknown')
 IF(telp.EQ.1)THEN
@@ -98,7 +111,13 @@ ENDIF
 WRITE(20,*)nr
 write(*,*) 'number of data',nr
 DO i=1,nr
-   sdgn=sdgnl
+   if(datatype(i)==1) then
+   sdgn = sdgnlp
+   !print*,'p pick',sdgn
+   else
+   sdgn = sdgnls
+   !print*,'s pick',sdgn
+   endif
    READ(10,*)i1,i2,i3,i4,tt
    IF(tt.LT.0.0)tt=-100.0
    IF(telp.EQ.1)THEN
@@ -127,7 +146,7 @@ CLOSE(20)
 IF(telp.EQ.1)THEN
    CLOSE(40)
 ENDIF
-DEALLOCATE(tsid)
+DEALLOCATE(tsid,datatype)
 END PROGRAM stimes
 
 REAL FUNCTION gasdev(idum)
