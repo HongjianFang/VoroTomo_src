@@ -144,7 +144,12 @@ real(kind=i5) threshold
 real(kind=i5) surfweight
 integer nnode
 integer vpvs
+integer cnt,tmp
+real(kind=i5) tmp1
 
+character (len=40) cdum
+integer flex,choosedsrc
+real(kind=i5) radall,latall,lonall
 !----------------------------------------------------------------
 !
 ! refvgfile = Reference velocity grid file
@@ -255,6 +260,7 @@ read(10,*)inversionScheme
 read(10,*)threshold
 read(10,*)surfweight
 read(10,*)vpvs
+read(10,*)flex
 1 FORMAT(a26)
 CLOSE(10)
 !
@@ -735,6 +741,7 @@ ENDIF
 !
 nnfd = 0
 ntr = 0
+nnode = nvpi/2
 if(surfjoint==0.or.surfjoint==2) then
 OPEN(UNIT=10,FILE=otfile,STATUS='old')
 OPEN(UNIT=20,FILE=mtfile,STATUS='old')
@@ -775,10 +782,15 @@ OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
 DO i=1,ntr
    READ(30,*)idm1,idm2,idm3,idm4,nrow
    nnfd=nnfd+nrow
+   cnt = 0
    IF(nrow.GT.0)THEN
       DO j=1,nrow
-         READ(30,*)
+         READ(30,*)tmp
+         if(tmp>nnode.and.tmp<=nvpi)cnt=cnt+1 
       ENDDO
+if(vpvs==1) then
+nnfd = nnfd+cnt
+endif
    ENDIF
 ENDDO
 CLOSE(30)
@@ -791,7 +803,7 @@ frdatfilesurf = 'frechetsurf.dat'
 otfilesurf = 'otimessurf.dat'
 mtfilesurf = 'mtimessurf.dat'
 ntrsurf = 0
-if (surfjoint == 1.or.surfjoint==2) then
+if (pvi>0.and.(surfjoint == 1.or.surfjoint==2)) then
 OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
 OPEN(UNIT=35,FILE=otfilesurf,STATUS='old')
 OPEN(UNIT=34,FILE=mtfilesurf,STATUS='old')
@@ -801,10 +813,15 @@ read(35,*) ntrsurf
 DO i=1,ntrsurf
    READ(30,*)idm1,nrow
    nnfd=nnfd+nrow
+   cnt = 0
    IF(nrow.GT.0)THEN
       DO j=1,nrow
-         READ(30,*)
+         READ(30,*)tmp
+         if(tmp>nnode.and.tmp<=nvpi)cnt=cnt+1 
       ENDDO
+if(vpvs==1) then
+nnfd = nnfd+cnt
+endif
    ENDIF
 ENDDO
 CLOSE(30)
@@ -815,7 +832,6 @@ ntr = ntr+ntrsurf
 ALLOCATE(frech(nnfd),fcoln(nnfd),cnfe(0:ntr))
 ALLOCATE(dobs(ntr),dmod(ntr),cd(ntr))
 
-nnode = nvpi/2
 idm2o=0
 jstep=0
 kstep=0
@@ -846,6 +862,7 @@ iswt=0
 isw2=0
 
 ! hidden bug, invert for vp/vs,  only works for 1 layer...
+!if (flex==1) stp = 0
 DO i=1,ntr-ntrsurf
    READ(10,*)idm1,idm2,idm3,idm4,dobs(istep),cd(istep)
 !
@@ -904,16 +921,29 @@ DO i=1,ntr-ntrsurf
    IF(nrow.GT.0)THEN
       jstep=jstep+1
       jup=jstep+nrow-1
+      cnt = 0
       DO j=jstep,jup
          READ(30,*)fcoln(j),frech(j)
 if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
-frech(j) = frech(j)*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+cnt = cnt+1
+tmp1 = frech(j)
+frech(j) = tmp1*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+frech(jup+cnt) = tmp1*(mc(fcoln(j))/mc(fcoln(j)-nnode))
+fcoln(jup+cnt) = fcoln(j)-nnode
 endif
       ENDDO
       IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
          jstep=jup
+if(vpvs==1) then
+jstep=jstep+cnt
+cnfe(istep)=cnfe(istep)+cnt
+endif
       ELSE IF(iswt.EQ.1)THEN
          jstep=jup
+if(vpvs==1) then
+jstep=jstep+cnt
+cnfe(istep)=cnfe(istep)+cnt
+endif
       ELSE
          jstep=jstep-1
       ENDIF
@@ -937,7 +967,7 @@ if (surfjoint==1) then
 istep=1
 jstep=0
 endif
-if (surfjoint == 1 .or. surfjoint == 2) then
+if (pvi>0.and.(surfjoint == 1.or.surfjoint==2)) then
 OPEN(UNIT=36,FILE=frdatfilesurf,STATUS='old')
 do i=1,ntrsurf
 read(34,*) dmod(istep)
@@ -950,14 +980,23 @@ cnfe(istep)=jstep+nrow
 IF(nrow.GT.0)THEN
    jstep=jstep+1
    jup=jstep+nrow-1
+   cnt = 0
    DO j=jstep,jup
       READ(36,*)fcoln(j),frech(j)
 if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
-frech(j) = frech(j)*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+cnt = cnt+1
+tmp1 = frech(j)
+frech(j) = tmp1*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+frech(jup+cnt) = tmp1*(mc(fcoln(j))/mc(fcoln(j)-nnode))
+fcoln(jup+cnt) = fcoln(j)-nnode
 endif
    ENDDO
    IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
       jstep=jup
+if(vpvs==1) then
+jstep=jstep+cnt
+cnfe(istep)=cnfe(istep)+cnt
+endif
    ELSE
       jstep=jstep-1
    ENDIF
@@ -981,7 +1020,7 @@ endif ! for data type (surfjoint==1 or 2)
 !if (surfjoint == 1) then
 !ntr = ntr-ntrsurf
 WRITE(6,*)'------------------------------------------------------------------'
-write(6,*)'no. of non-zero in G', nnfd
+write(6,*)'no. of non-zero in G and nodes', nnfd,nnode
 write(6,*)'data for body wave & surface wave', ntr-ntrsurf, ntrsurf
 !endif
 !----------------------------------------------------------------
@@ -1611,6 +1650,46 @@ IF(psi.EQ.1)THEN
       ENDDO
    ENDDO
    CLOSE(10)
+
+  if(flex==1 .and. psi==1) then
+  DEALLOCATE(paths,patht,tpath,nsdf,lots,nps,stp)
+   OPEN(UNIT=20,FILE='sourcesallref.in',STATUS='unknown')
+   OPEN(UNIT=10,FILE='sourcesall.in',STATUS='unknown')
+   read(20,*)ns
+   !ALLOCATE(sradr(ns),slatr(ns),slonr(ns))
+   !ALLOCATE(covsr(ns),covst(ns),covsp(ns))
+   ALLOCATE(lots(ns),nps(ns),tpath(ns))
+   ALLOCATE(nsdf(maxs,ns))
+   ALLOCATE(stp(ns))
+   ALLOCATE(paths(maxs,maxp,ns),patht(maxs,maxp,ns))
+   WRITE(10,*)ns
+   DO i=1,ns
+      read(20,*)lots(i),cdum,choosedsrc
+      WRITE(10,*)lots(i),cdum,choosedsrc
+      IF(lots(i).EQ.1)WRITE(10,'(a10)')tpath(i)
+      idm1=0
+      read(20,*)radall,latall,lonall
+      if(choosedsrc>0) then
+      WRITE(10,*)srad(ids(choosedsrc)),slat(ids(choosedsrc)),slon(ids(choosedsrc))
+      else
+      write(10,*)radall,latall,lonall
+      endif
+      read(20,*)nps(i)
+      WRITE(10,*)nps(i)
+      DO j=1,nps(i)
+         read(20,*)nsdf(j,i)
+         read(20,*)paths(1:2*nsdf(j,i),j,i)
+         read(20,*)patht(1:nsdf(j,i),j,i)
+         WRITE(10,*)nsdf(j,i)
+         WRITE(10,*)paths(1:2*nsdf(j,i),j,i)
+         WRITE(10,*)patht(1:nsdf(j,i),j,i)
+      ENDDO
+   ENDDO
+   CLOSE(10)
+   CLOSE(20)
+  endif
+
+
    OPEN(UNIT=10,FILE=stfile,STATUS='unknown')
    WRITE(10,*)nspi
    DO i=1,nspi

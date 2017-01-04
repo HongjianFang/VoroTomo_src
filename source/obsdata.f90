@@ -233,7 +233,7 @@ DO i=1,nisf
          ENDDO
          CLOSE(80)
       ENDDO
-      WRITE(20,*)lot
+      WRITE(20,*)lot,trim(cdum),1
       IF(lot.EQ.1)WRITE(20,2)phase
 2     FORMAT(a10)
       IF(csdif.EQ.1)THEN
