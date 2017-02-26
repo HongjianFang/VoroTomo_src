@@ -158,6 +158,8 @@
         endif
         enddo
         close(87)
+        !noises(1:dall) = 1.0/noises(1:dall)
+        !noises(1:dall) = noises(1:dall)/maxval(noises(1:dall))
         open(44,file='inviter.in')
         read(44,*) invstep
         close(44)

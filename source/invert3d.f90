@@ -136,6 +136,8 @@ real(kind=i5),allocatable,dimension(:)::rw
 real(kind=i5),allocatable,dimension(:)::dtrav
 real(kind=i5),allocatable,dimension(:)::dataweight
 real,allocatable,dimension(:)::norm
+!real,allocatable,dimension(:)::norm,norm_dws
+!REAL(KIND=i5), DIMENSION(:,:,:,:,:), ALLOCATABLE :: velndws
 integer checkstat
 integer inversionScheme
 integer is1,is2,is3
@@ -146,9 +148,10 @@ integer nnode
 integer vpvs
 integer cnt,tmp
 real(kind=i5) tmp1
+integer jstep_tmp
 
 character (len=40) cdum
-integer flex,choosedsrc
+!integer flex,choosedsrc
 real(kind=i5) radall,latall,lonall
 !----------------------------------------------------------------
 !
@@ -260,7 +263,7 @@ read(10,*)inversionScheme
 read(10,*)threshold
 read(10,*)surfweight
 read(10,*)vpvs
-read(10,*)flex
+!read(10,*)flex
 1 FORMAT(a26)
 CLOSE(10)
 !
@@ -445,6 +448,7 @@ IF(pvi.EQ.1)THEN
 !  number is greater than one.
 !
    ALLOCATE(veln(mvnr,mvnt,mvnp,ni-1,nvgt))
+!   ALLOCATE(velndws(mvnr,mvnt,mvnp,ni-1,nvgt))
    IF(invstep.GT.1)THEN
       OPEN(UNIT=10,FILE=vgfile,STATUS='old')
       READ(10,*)
@@ -916,6 +920,8 @@ DO i=1,ntr-ntrsurf
    READ(30,*)idm1,idm2,idm3,idm4,nrow
    if(inversionScheme==1) then
    cd(istep)=cd(istep)**2
+!   else
+!   cd(istep)=cd(istep)/3.0
    endif
    cnfe(istep)=jstep+nrow
    IF(nrow.GT.0)THEN
@@ -975,6 +981,8 @@ read(35,*) dobs(istep),cd(istep)
 READ(36,*)idm1,nrow
 if(inversionScheme==1) then
 cd(istep)=cd(istep)**2
+!else
+!cd(istep)=cd(istep)/3.0
 endif
 cnfe(istep)=jstep+nrow
 IF(nrow.GT.0)THEN
@@ -1009,9 +1017,9 @@ CLOSE(34)
 CLOSE(35)
 CLOSE(36)
 
-mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
-std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
-write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
+!mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
+!std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
+!write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
 
 endif ! for data type (surfjoint==1 or 2)
 
@@ -1109,6 +1117,8 @@ allocate(dataweight(ntr+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating dataweight'
 allocate(norm(npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating norm'
+!allocate(norm_dws(npi),stat=checkstat)
+!if(checkstat>0) stop 'error allocating norm_dws'
 iw = 0
 rw = 0.
 jstep = 0
@@ -1120,6 +1130,9 @@ do m = 1,ntr
     col(jstep) = fcoln(jstep)
   enddo
 enddo
+
+jstep_tmp = jstep
+
 !aguement smooth matrix under the sensitivity matrix
 damp = epsilon
 is2=0
@@ -1272,8 +1285,8 @@ if (nspi>0) then
     col(jstep+3*nspi+i) = nvpi+nipi+3*nspi+i
     istep = istep+1
   enddo
-endif
 jstep = jstep+4*nspi
+endif
 
 m = istep -1
 l = npi
@@ -1281,6 +1294,83 @@ iw(1) = jstep
 do i = 1,jstep
   iw(1+jstep+i) = col(i)
 enddo
+
+!DO i=1,ntr
+!   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
+!ENDDO
+DO i=1,ntr
+   dtrav(i)=(dmod(i)-dobs(i))
+ENDDO
+print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
+! downweight data with large residual
+dataweight = 1.0
+if(surfjoint==0 .or.surfjoint==2) then
+mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+DO i=1,ntr-ntrsurf
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves:', 1000*mean, 1000*std_surf
+endif
+
+if(surfjoint==1) then
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+!print*,mean,std_surf
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+endif
+
+
+if(surfjoint==2) then
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
+sqrt(real(ntr-ntrsurf)/ntrsurf)*surfweight
+else  
+dataweight(i) = surfweight*sqrt(real(ntr-ntrsurf)/ntrsurf)
+endif
+!dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+DO i=ntr-ntrsurf+1,ntr
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+endif
+
+DO i=1,ntr
+   dtrav(i)=dtrav(i)/cd(i)
+ENDDO
+
+do i = 1,jstep
+rw(i) = rw(i)*dataweight(iw(1+i))
+enddo
+do i=ntr+1,m
+  dtrav(i)=0.
+enddo
+
+!calculate dws
+!norm_dws = 0
+!do j = 1, jstep_tmp
+!norm_dws(iw(1+jstep+j)) = norm_dws(iw(1+jstep+j))+abs(rw(j))
+!enddo
+
 
 norm = 0
 do i=1,jstep
@@ -1311,61 +1401,14 @@ enddo
     xnorm = 0.0
     localSize = l/4
 
-DO i=1,ntr
-   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
-ENDDO
-print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
-! downweight data with large residual
-dataweight = 1.0
-if(surfjoint==0 .or.surfjoint==2) then
-mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
-std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-DO i=1,ntr-ntrsurf
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-endif
-
-if(surfjoint==1) then
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-!print*,mean,std_surf
-DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-endif
 
 
-if(surfjoint==2) then
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
-sqrt(real(ntr-ntrsurf)/ntrsurf)*surfweight
-else  
-dataweight(i) = surfweight*sqrt(real(ntr-ntrsurf)/ntrsurf)
-endif
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-endif
-
-do i = 1,jstep
-rw(i) = rw(i)*dataweight(iw(1+i))
-enddo
-do i=ntr+1,m
-  dtrav(i)=0.
-enddo
         nout = 63
         write (itnum,'(I0)') invstep
         open(nout,file='lsmrout'//trim(itnum)//'.txt')
 print*,'-----------------------------------------------------'
 print*,'iteration:',invstep
+!print*,'min. and max. dws',minval(norm_dws),maxval(norm_dws)
 print*,'min. and max. dws',minval(norm),maxval(norm)
     call LSMR(m, l, leniw, lenrw,iw,rw,dtrav, damp,&
       atol, btol, conlim, itnlim, localSize, nout,&
@@ -1415,6 +1458,8 @@ IF(pvi.EQ.1)THEN
    WRITE(10,*)ni-1,nvgt
    OPEN(UNIT=11,FILE=trim(vgfile)//trim('vpvs'),STATUS='unknown')
    WRITE(11,*)ni-1,nvgt
+!   OPEN(UNIT=12,FILE=trim(vgfile)//trim('dws'),STATUS='unknown')
+!   WRITE(12,*)ni-1,nvgt
 
   ! print*,npi
   ! print*
@@ -1437,13 +1482,16 @@ IF(pvi.EQ.1)THEN
                DO l=1,nvnt(j,i)
                   DO m=1,nvnr(j,i)
                      istep=istep+1
+                     if (abs(dm(istep))>0.3) dm(istep) = dm(istep)/abs(dm(istep))*0.3
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
+!                     velndws(m,l,k,j,i)=norm_dws(istep)
                      if(vpvs==1) then
                      if(istep<=nnode) then
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
                      else
                      veln(m,l,k,j,i)=mc(istep-nnode)/mc(istep)+dm(istep)
-                     veln(m,l,k,j,i) = mc(istep-nnode)/veln(m,l,k,j,i)
+                     !veln(m,l,k,j,i) = mc(istep-nnode)/veln(m,l,k,j,i)
+                     veln(m,l,k,j,i) = veln(m,l,k,j,i-1)/veln(m,l,k,j,i)
                      endif
                      endif
                      IF(veln(m,l,k,j,i).LT.mpv)veln(m,l,k,j,i)=mpv
@@ -1489,6 +1537,24 @@ IF(pvi.EQ.1)THEN
       ENDDO
    ENDDO
    CLOSE(11)
+
+! write out dws
+!   DO i=1,nvgt
+!     DO j=1,ni-1
+!         WRITE(12,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
+!         WRITE(12,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
+!         WRITE(12,*)gor(j,i),got(j,i),gop(j,i)
+!         DO k=1,nvnr(j,i)
+!            DO l=1,nvnt(j,i)
+!               DO m=1,nvnp(j,i)
+!                write(12,*) velndws(k,l,m,j,i)
+!               ENDDO
+!            ENDDO
+!         ENDDO
+!      ENDDO
+!   ENDDO
+!   CLOSE(12)
+
 
 ENDIF
 IF(pii.EQ.1)THEN
@@ -1576,6 +1642,7 @@ IF(psi.EQ.1)THEN
     endif
    DO j=1,nspi
       istep=istep+1
+      if (abs(dm(istep))>1.0) dm(istep) = dm(istep)/abs(dm(istep))*1.0
       srad(ids(j))=mc(istep)-dm(istep)
    if(pvi>0) then
       if (srad(ids(j)) < pgt) then
@@ -1597,6 +1664,7 @@ IF(psi.EQ.1)THEN
       istep=istep+1
 ! dis/R*180/pi  rad-->degree
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
+      if (abs(dm(istep))>0.05) dm(istep) = dm(istep)/abs(dm(istep))*0.05
       slat(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
       if (slat(ids(j)) > pgt) then
@@ -1620,6 +1688,7 @@ IF(psi.EQ.1)THEN
       ! bug here, seems very important bug 180*pi-->pi/180
       ! degree-->rad for cos
       dm(istep)=dm(istep)/cos(slat(ids(j))*pi/180)
+      if (abs(dm(istep))>0.05) dm(istep) = dm(istep)/abs(dm(istep))*0.05
       slon(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
       if (slon(ids(j)) > pgt) then
@@ -1651,43 +1720,43 @@ IF(psi.EQ.1)THEN
    ENDDO
    CLOSE(10)
 
-  if(flex==1 .and. psi==1) then
-  DEALLOCATE(paths,patht,tpath,nsdf,lots,nps,stp)
-   OPEN(UNIT=20,FILE='sourcesallref.in',STATUS='unknown')
-   OPEN(UNIT=10,FILE='sourcesall.in',STATUS='unknown')
-   read(20,*)ns
-   !ALLOCATE(sradr(ns),slatr(ns),slonr(ns))
-   !ALLOCATE(covsr(ns),covst(ns),covsp(ns))
-   ALLOCATE(lots(ns),nps(ns),tpath(ns))
-   ALLOCATE(nsdf(maxs,ns))
-   ALLOCATE(stp(ns))
-   ALLOCATE(paths(maxs,maxp,ns),patht(maxs,maxp,ns))
-   WRITE(10,*)ns
-   DO i=1,ns
-      read(20,*)lots(i),cdum,choosedsrc
-      WRITE(10,*)lots(i),cdum,choosedsrc
-      IF(lots(i).EQ.1)WRITE(10,'(a10)')tpath(i)
-      idm1=0
-      read(20,*)radall,latall,lonall
-      if(choosedsrc>0) then
-      WRITE(10,*)srad(ids(choosedsrc)),slat(ids(choosedsrc)),slon(ids(choosedsrc))
-      else
-      write(10,*)radall,latall,lonall
-      endif
-      read(20,*)nps(i)
-      WRITE(10,*)nps(i)
-      DO j=1,nps(i)
-         read(20,*)nsdf(j,i)
-         read(20,*)paths(1:2*nsdf(j,i),j,i)
-         read(20,*)patht(1:nsdf(j,i),j,i)
-         WRITE(10,*)nsdf(j,i)
-         WRITE(10,*)paths(1:2*nsdf(j,i),j,i)
-         WRITE(10,*)patht(1:nsdf(j,i),j,i)
-      ENDDO
-   ENDDO
-   CLOSE(10)
-   CLOSE(20)
-  endif
+!  if(psi==1) then
+!  DEALLOCATE(paths,patht,tpath,nsdf,lots,nps,stp)
+!   OPEN(UNIT=20,FILE='sourcesallref.in',STATUS='unknown')
+!   OPEN(UNIT=10,FILE='sourcesall.in',STATUS='unknown')
+!   read(20,*)ns
+!   !ALLOCATE(sradr(ns),slatr(ns),slonr(ns))
+!   !ALLOCATE(covsr(ns),covst(ns),covsp(ns))
+!   ALLOCATE(lots(ns),nps(ns),tpath(ns))
+!   ALLOCATE(nsdf(maxs,ns))
+!   ALLOCATE(stp(ns))
+!   ALLOCATE(paths(maxs,maxp,ns),patht(maxs,maxp,ns))
+!   WRITE(10,*)ns
+!   DO i=1,ns
+!      read(20,*)lots(i),cdum,choosedsrc
+!      WRITE(10,*)lots(i),cdum,choosedsrc
+!      IF(lots(i).EQ.1)WRITE(10,'(a10)')tpath(i)
+!      idm1=0
+!      read(20,*)radall,latall,lonall
+!      if(choosedsrc>0) then
+!      WRITE(10,*)srad(ids(choosedsrc)),slat(ids(choosedsrc)),slon(ids(choosedsrc))
+!      else
+!      write(10,*)radall,latall,lonall
+!      endif
+!      read(20,*)nps(i)
+!      WRITE(10,*)nps(i)
+!      DO j=1,nps(i)
+!         read(20,*)nsdf(j,i)
+!         read(20,*)paths(1:2*nsdf(j,i),j,i)
+!         read(20,*)patht(1:nsdf(j,i),j,i)
+!         WRITE(10,*)nsdf(j,i)
+!         WRITE(10,*)paths(1:2*nsdf(j,i),j,i)
+!         WRITE(10,*)patht(1:nsdf(j,i),j,i)
+!      ENDDO
+!   ENDDO
+!   CLOSE(10)
+!   CLOSE(20)
+!  endif
 
 
    OPEN(UNIT=10,FILE=stfile,STATUS='unknown')
@@ -1706,7 +1775,9 @@ DEALLOCATE(dobs,dmod,cd)
 DEALLOCATE(mo,mc,cm,ecmi,dm)
 !DEALLOCATE(paths,patht)
 !DEALLOCATE(tsid)
+!if(inversionScheme /= 1) deallocate(norm_dws)
 IF(pvi.EQ.1)THEN
+   !DEALLOCATE(veln,velndws)
    DEALLOCATE(veln)
    DEALLOCATE(nvnr,nvnt,nvnp)
    DEALLOCATE(gnsr,gnst,gnsp)

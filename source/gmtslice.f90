@@ -171,7 +171,11 @@ CHARACTER (LEN=30) :: ofilegcv,ofilegci
 ! goti,gopi = Grid origin of interface (theta,phi)
 !
 sep='>'
+if (iargc()<1) then
 OPEN(UNIT=10,FILE='gmtslice.in',STATUS='old')
+else
+OPEN(UNIT=10,FILE='gmtslicedws.in',STATUS='old')
+endif
 !
 ! Read in input file names
 !
