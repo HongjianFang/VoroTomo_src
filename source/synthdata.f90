@@ -139,7 +139,7 @@ DO i=1,nr
          IF(telegn.EQ.1)cv=sdgn
       ENDIF
    ENDIF
-   WRITE(20,'(i7,2x,i3,2x,i3,2x,i2,2x,f10.5,2x,f5.2)')i1,i2,i3,i4,tt,cv
+   WRITE(20,'(i7,2x,i4,2x,i3,2x,i2,2x,f10.5,2x,f5.2)')i1,i2,i3,i4,tt,cv
 ENDDO
 CLOSE(10)
 CLOSE(20)

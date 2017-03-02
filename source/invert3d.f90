@@ -135,9 +135,9 @@ integer,allocatable,dimension(:)::iw,col
 real(kind=i5),allocatable,dimension(:)::rw
 real(kind=i5),allocatable,dimension(:)::dtrav
 real(kind=i5),allocatable,dimension(:)::dataweight
-real,allocatable,dimension(:)::norm
-!real,allocatable,dimension(:)::norm,norm_dws
-!REAL(KIND=i5), DIMENSION(:,:,:,:,:), ALLOCATABLE :: velndws
+!real,allocatable,dimension(:)::norm
+real,allocatable,dimension(:)::norm,norm_dwsb,norm_dwss
+REAL(KIND=i5), DIMENSION(:,:,:,:,:), ALLOCATABLE :: velndwsb,velndwss
 integer checkstat
 integer inversionScheme
 integer is1,is2,is3
@@ -148,7 +148,7 @@ integer nnode
 integer vpvs
 integer cnt,tmp
 real(kind=i5) tmp1
-integer jstep_tmp
+integer jstep_tmp,jstep_tmpb,jstep_tmps
 
 character (len=40) cdum
 !integer flex,choosedsrc
@@ -448,7 +448,8 @@ IF(pvi.EQ.1)THEN
 !  number is greater than one.
 !
    ALLOCATE(veln(mvnr,mvnt,mvnp,ni-1,nvgt))
-!   ALLOCATE(velndws(mvnr,mvnt,mvnp,ni-1,nvgt))
+   ALLOCATE(velndwsb(mvnr,mvnt,mvnp,ni-1,nvgt))
+   ALLOCATE(velndwss(mvnr,mvnt,mvnp,ni-1,nvgt))
    IF(invstep.GT.1)THEN
       OPEN(UNIT=10,FILE=vgfile,STATUS='old')
       READ(10,*)
@@ -807,6 +808,10 @@ frdatfilesurf = 'frechetsurf.dat'
 otfilesurf = 'otimessurf.dat'
 mtfilesurf = 'mtimessurf.dat'
 ntrsurf = 0
+jstep_tmp = 0
+jstep_tmpb = 0
+jstep_tmps = 0
+
 if (pvi>0.and.(surfjoint == 1.or.surfjoint==2)) then
 OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
 OPEN(UNIT=35,FILE=otfilesurf,STATUS='old')
@@ -965,6 +970,7 @@ CLOSE(10)
 CLOSE(20)
 CLOSE(30)
 IF(ntels.GT.0)CLOSE(40)
+jstep_tmpb = jstep
 endif ! for data type (surfjoint==0 or 2)
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
@@ -1020,7 +1026,7 @@ CLOSE(36)
 !mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
 !std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
 !write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
-
+jstep_tmps = jstep - jstep_tmpb
 endif ! for data type (surfjoint==1 or 2)
 
 ! hongjian fang @ethz... adding surface wave data
@@ -1117,8 +1123,8 @@ allocate(dataweight(ntr+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating dataweight'
 allocate(norm(npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating norm'
-!allocate(norm_dws(npi),stat=checkstat)
-!if(checkstat>0) stop 'error allocating norm_dws'
+allocate(norm_dwsb(npi),norm_dwss(npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating norm_dws'
 iw = 0
 rw = 0.
 jstep = 0
@@ -1366,10 +1372,14 @@ do i=ntr+1,m
 enddo
 
 !calculate dws
-!norm_dws = 0
-!do j = 1, jstep_tmp
-!norm_dws(iw(1+jstep+j)) = norm_dws(iw(1+jstep+j))+abs(rw(j))
-!enddo
+norm_dwsb = 0
+do j = 1, jstep_tmpb
+norm_dwsb(iw(1+jstep+j)) = norm_dwsb(iw(1+jstep+j))+abs(rw(j))
+enddo
+norm_dwss = 0
+do j = jstep_tmp-jstep_tmpb+1, jstep_tmp
+norm_dwss(iw(1+jstep+j)) = norm_dwss(iw(1+jstep+j))+abs(rw(j))
+enddo
 
 
 norm = 0
@@ -1437,7 +1447,7 @@ write(*,*) 'min. and max. srcs location variation: stp', minval(dm(nvpi+nipi+3*n
 print*,'-----------------------------------------------------'
 endif
 
-endif
+endif !subspace or lsmr
 
 
 !open(64,file='dm.dat')
@@ -1458,8 +1468,8 @@ IF(pvi.EQ.1)THEN
    WRITE(10,*)ni-1,nvgt
    OPEN(UNIT=11,FILE=trim(vgfile)//trim('vpvs'),STATUS='unknown')
    WRITE(11,*)ni-1,nvgt
-!   OPEN(UNIT=12,FILE=trim(vgfile)//trim('dws'),STATUS='unknown')
-!   WRITE(12,*)ni-1,nvgt
+   OPEN(UNIT=12,FILE=trim(vgfile)//trim('dws'),STATUS='unknown')
+   WRITE(12,*)ni-1,nvgt
 
   ! print*,npi
   ! print*
@@ -1484,7 +1494,8 @@ IF(pvi.EQ.1)THEN
                      istep=istep+1
                      if (abs(dm(istep))>0.3) dm(istep) = dm(istep)/abs(dm(istep))*0.3
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
-!                     velndws(m,l,k,j,i)=norm_dws(istep)
+                     velndwsb(m,l,k,j,i)=norm_dwsb(istep)
+                     velndwss(m,l,k,j,i)=norm_dwss(istep)
                      if(vpvs==1) then
                      if(istep<=nnode) then
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
@@ -1538,22 +1549,22 @@ IF(pvi.EQ.1)THEN
    ENDDO
    CLOSE(11)
 
-! write out dws
-!   DO i=1,nvgt
-!     DO j=1,ni-1
-!         WRITE(12,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
-!         WRITE(12,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
-!         WRITE(12,*)gor(j,i),got(j,i),gop(j,i)
-!         DO k=1,nvnr(j,i)
-!            DO l=1,nvnt(j,i)
-!               DO m=1,nvnp(j,i)
-!                write(12,*) velndws(k,l,m,j,i)
-!               ENDDO
-!            ENDDO
-!         ENDDO
-!      ENDDO
-!   ENDDO
-!   CLOSE(12)
+ !write out dws
+   DO i=1,nvgt
+     DO j=1,ni-1
+         WRITE(12,*)nvnr(j,i),nvnt(j,i),nvnp(j,i)
+         WRITE(12,*)gnsr(j,i),gnst(j,i),gnsp(j,i)
+         WRITE(12,*)gor(j,i),got(j,i),gop(j,i)
+         DO k=1,nvnr(j,i)
+            DO l=1,nvnt(j,i)
+               DO m=1,nvnp(j,i)
+                write(12,*) velndwsb(k,l,m,j,i),velndwss(k,l,m,j,i)
+               ENDDO
+            ENDDO
+         ENDDO
+      ENDDO
+   ENDDO
+   CLOSE(12)
 
 
 ENDIF
@@ -1775,10 +1786,10 @@ DEALLOCATE(dobs,dmod,cd)
 DEALLOCATE(mo,mc,cm,ecmi,dm)
 !DEALLOCATE(paths,patht)
 !DEALLOCATE(tsid)
-!if(inversionScheme /= 1) deallocate(norm_dws)
+if(inversionScheme /= 1) deallocate(norm_dwsb,norm_dwss)
 IF(pvi.EQ.1)THEN
-   !DEALLOCATE(veln,velndws)
-   DEALLOCATE(veln)
+   DEALLOCATE(veln,velndwsb,velndwss)
+   !DEALLOCATE(veln)
    DEALLOCATE(nvnr,nvnt,nvnp)
    DEALLOCATE(gnsr,gnst,gnsp)
    DEALLOCATE(gor,got,gop)
