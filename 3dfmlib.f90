@@ -4824,12 +4824,18 @@ subroutine clean_ray(n,m)
 end subroutine clean_ray
 
 !*****************************************************************************************************
-subroutine write_frechet_derivatives(n,m)
+subroutine write_frechet_derivatives(n,m,non_row,nonzero_id,nonzero_value,ncount)
 
   use mod_3dfm
 
   integer                              :: i,k,m,n,zero
   type(Tray),pointer                   :: ray
+
+! netcdf variables, hongjian fang@ustc 2017/03/03
+  real(kind=dp),dimension(:) :: nonzero_value
+  integer,dimension(:) :: non_row,nonzero_id
+  integer :: ncount
+  
 
   zero=0
 
@@ -4841,15 +4847,22 @@ subroutine write_frechet_derivatives(n,m)
 
         if (ray%valid) then
 
-           write(21,'(5i6)') n,ray%source_id,m,k,ray%n_pdev
+
+! netcdf variables, hongjian fang@ustc 2017/03/03
+           !write(21,'(5i6)') n,ray%source_id,m,k,ray%n_pdev
+           non_row(n) = ray%n_pdev
 
            do i=1,ray%n_pdev
-              write(21,'(i10,f17.8)') ray%pdev_indx(i),ray%pdev(i)
+              !write(21,'(i10,f17.8)') ray%pdev_indx(i),ray%pdev(i)
+              ncount = ncount + 1
+              nonzero_id(ncount) = ray%pdev_indx(i)
+              nonzero_value(ncount) = ray%pdev(i)
            end do
 
         else
 
-           write(21,'(5i6)') n,ray%source_id,m,k,zero
+           !write(21,'(5i6)') n,ray%source_id,m,k,zero
+           non_row(n) = zero!ray%n_pdev
 
         endif
 
@@ -4863,15 +4876,20 @@ subroutine write_frechet_derivatives(n,m)
 
      if (ray%valid) then
 
-        write(21,'(5i6)') n,ray%source_id,m,k,ray%n_pdev
+        !write(21,'(5i6)') n,ray%source_id,m,k,ray%n_pdev
+           non_row(n) = ray%n_pdev
 
         do i=1,ray%n_pdev
-           write(21,'(i10,e17.8)') ray%pdev_indx(i),ray%pdev(i)
+           !write(21,'(i10,e17.8)') ray%pdev_indx(i),ray%pdev(i)
+              ncount = ncount + 1
+              nonzero_id(ncount) = ray%pdev_indx(i)
+              nonzero_value(ncount) = ray%pdev(i)
         end do
 
      else
 
-        write(21,'(5i6)') n,ray%source_id,m,k,zero
+        !write(21,'(5i6)') n,ray%source_id,m,k,zero
+           non_row(n) = zero!ray%n_pdev
 
      endif
 
