@@ -40,7 +40,7 @@ program fm3d
   real(kind=dp),dimension(:),allocatable :: nonzero_value
   integer,dimension(:),allocatable :: nonzero_id, non_row
   integer :: nonz
-  real(kind=dp),parameter :: sparsefrac=0.03
+  real(kind=dp),parameter :: sparsefrac=0.001
   integer :: ncount
   
 
@@ -813,6 +813,14 @@ if (no_pp_mode) then
 endif
 
 
+! netcdf variables, hongjian fang@ustc 2017/03/02
+nonz = sparsefrac*vgrid(1,1)%nr*vgrid(1,1)%nlat*vgrid(1,1)%nlong*n_receivers
+allocate(non_row(n_receivers))
+allocate(nonzero_value(nonz))
+allocate(nonzero_id(nonz))
+non_row = 0
+nonzero_value = 0.
+nonzero_id = 0
 
 do ns=1,n_sources_ppinc
 
@@ -1091,14 +1099,6 @@ if (file_mode) then
 endif
 
 
-! netcdf variables, hongjian fang@ustc 2017/03/02
-nonz = sparsefrac*vgrid(1,1)%nr*vgrid(1,1)%nlat*vgrid(1,1)%nlong*n_receivers
-allocate(non_row(n_receivers))
-allocate(nonzero_value(nonz))
-allocate(nonzero_id(nonz))
-non_row = 0
-nonzero_value = 0.
-nonzero_id = 0
 
 if (no_pp_mode) then
 
@@ -1380,10 +1380,6 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
    if (display_mode) close(41)
    if (display_mode) close(42)
 
-! netcdf variables, hongjian fang@ustc 2017/03/02
-! call netcdf to save non_row,nonzero_id/value
-   call savetonetcdf(non_row,nonzero_id,nonzero_value)
-   deallocate(non_row,nonzero_id,nonzero_value)
 
    call system_clock(t5,count_rate,count_max)
 
@@ -1398,6 +1394,10 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
 
 endif  ! n_receivers > 0 and not in no_pp_mode
 
+! netcdf variables, hongjian fang@ustc 2017/03/02
+! call netcdf to save non_row,nonzero_id/value
+   call savetonetcdf(n_receivers,ncount,non_row,nonzero_id,nonzero_value)
+   deallocate(non_row,nonzero_id,nonzero_value)
 
 !-----------------------------------------------------------------------------------------------------------
 

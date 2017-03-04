@@ -4832,8 +4832,8 @@ subroutine write_frechet_derivatives(n,m,non_row,nonzero_id,nonzero_value,ncount
   type(Tray),pointer                   :: ray
 
 ! netcdf variables, hongjian fang@ustc 2017/03/03
-  real(kind=dp),dimension(:) :: nonzero_value
-  integer,dimension(:) :: non_row,nonzero_id
+  real(kind=dp) :: nonzero_value(*)
+  integer :: non_row(*),nonzero_id(*)
   integer :: ncount
   
 

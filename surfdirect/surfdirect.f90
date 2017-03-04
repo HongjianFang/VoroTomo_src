@@ -246,14 +246,14 @@
 ! frechet direvitives for surface wave data
 !print*,depz
 !print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
-        open(34,file='frechetsurf.dat')
+        !open(34,file='frechetsurf.dat')
         open(35,file='ttimessurf.dat')
         call CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrc, &
-              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
-         close(34)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall)
+         !close(34)
          close(35)
          print*,'surface wave frechet direvitives done'
 

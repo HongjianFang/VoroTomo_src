@@ -1,16 +1,15 @@
         subroutine savetonetcdf(nrow,nzero,non_row, nzero_id, nzero_value)
           use netcdf
           implicit none
-          integer,parameter::dp = SELECTED_REAL_KIND(15,307)
           integer,intent(in) :: nrow,nzero
           integer,intent(in) :: non_row(nrow),nzero_id(nzero)
-          real(kind=dp),intent(inout) :: nzero_value(nzero)
+          real,intent(inout) :: nzero_value(nzero)
 
           integer :: file_id,non_row_id,nzero_id_id,nzero_value_id,nrow_id,nvalue_id
           integer :: ierr
         
           print*,nrow,nzero
-          call err( nf90_create(path='frechet.nc',cmode=NF90_CLOBBER,ncid=file_id))
+          call err( nf90_create(path='frechetsurf.nc',cmode=NF90_CLOBBER,ncid=file_id))
           call err( nf90_def_dim(file_id,'nrow',nrow,nrow_id))
           call err( nf90_def_dim(file_id,'nzero',nzero,nvalue_id))
 

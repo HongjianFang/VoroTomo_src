@@ -1,4 +1,4 @@
-nthread = 16 
+nthread = 20 
 import numpy as np
 import os
 for ii in range(nthread):
@@ -24,7 +24,7 @@ with open('sources.in','r') as src:
 			srcp.write(line)
 
 aver = float(nsrc/nthread)
-nrcp = np.zeros(nthread,)
+nrcp = np.zeros((nthread,),dtype=int)
 with open('otimes.dat','r') as otime:
 	nd = int(otime.readline())		  
 	for ii in range(nd-int(aver)):
@@ -83,8 +83,10 @@ with open('vgrids.in','r') as vgrids:
   vgrids.readline()
   nx,ny,nz =[int(ii) for ii in vgrids.readline().split()]
 ngrid = nx*ny*nz*2
-frech = open('frechet.dat','w')
 arrival = open('arrivals.dat','w')
+nzero = 0
+nrow = 0
+from netCDF4 import Dataset
 for ii in range(nthread):
 	  with open(''.join(['fmm3drun',str(ii),'/arrivals.dat']),'r') as arr:
  	   for ls in arr:
@@ -95,24 +97,49 @@ for ii in range(nthread):
 	     line[1] = str(sidx)
 	     line.append('\n')
 	     arrival.write('    '.join(line))
-	  with open(''.join(['fmm3drun',str(ii),'/frechet.dat']),'r') as fre:
-	   for kk in range(int(nrcp[ii])):
-	     line = fre.readline().split()
-	     didx = int(line[0])+int(np.sum(nrcp[:ii]))
-	     sidx = int(line[1])+int(np.sum(nsrcp[:ii]))
-	     line[0] = str(didx)
-	     line[1] = str(sidx)
-	     line.append('\n')
-	     frech.write('    '.join(line))
-	     for jj in range(int(line[4])):
-		line = fre.readline().split()
-		if int(line[0])<=ngrid:
-	          line.append('\n')
-		  frech.write('  '.join(line))
-		else:
-		  spidx = int(line[0])+4*int(np.sum(nsrcp[:ii]))
-		  line[0] = str(spidx)
-	          line.append('\n')
-		  frech.write('  '.join(line))
+	  ds = Dataset(''.join(['fmm3drun',str(ii),'/frechet.nc']))
+	  nrow = nrow + ds.dimensions.values()[0].size
+	  nzero = nzero + ds.dimensions.values()[1].size
 arrival.close()	      
-frech.close()
+ds.close()
+nrows = np.zeros((nrow,),dtype=int)
+nzeros = np.zeros((nzero,),dtype=float)
+nzeros_id = np.zeros((nzero,),dtype=int)
+ncount = 0
+ncount2 = 0
+for ii in range(nthread):
+	  ds = Dataset(''.join(['fmm3drun',str(ii),'/frechet.nc']))
+	  nrow1 = ds.dimensions.values()[0].size 
+	  nrowseg = np.zeros((nrow1,),dtype=int)
+	  nrowseg = ds.variables['Non_row'][:]
+	  nzero1 =ds.dimensions.values()[1].size 
+	  nzeroidseg = np.zeros((nzero1,),dtype=int)
+	  nzeroidseg = ds.variables['Non_id'][:]
+	  nzeroseg = np.zeros((nzero1,),dtype=float)
+	  nzeroseg = ds.variables['Non_value'][:]
+	  ncount3 = 0
+	  for jj in range(nrow1):
+		ncount = ncount+1
+	        nrows[ncount-1] = nrowseg[jj] 
+	        for kk in range(nrows[ncount-1]):
+		   ncount2 = ncount2+1
+		   ncount3 = ncount3+1
+ 		   nzeros[ncount2-1] = nzeroseg[ncount3-1]
+		   tmp =  nzeroidseg[ncount3-1]
+		   if tmp < ngrid:
+		     nzeros_id[ncount2-1] = tmp
+		   else:
+		     nzeros_id[ncount2-1] = tmp+4*int(np.sum(nsrcp[:ii]))
+	  ds.close()
+#	  print 'finished',ii
+
+dsnew = Dataset('frechet.nc','w',format='NETCDF3_CLASSIC')
+nrowdim = dsnew.createDimension('nrow',nrow)
+nzerodim = dsnew.createDimension('nzero',nzero)
+ncnrow = dsnew.createVariable('Non_row',np.int32,('nrow',))
+ncnzero = dsnew.createVariable('Non_value',np.float32,('nzero',))
+ncnzero_id = dsnew.createVariable('Non_id',np.int32,('nzero',))
+ncnrow[:] = nrows
+ncnzero[:] = nzeros
+ncnzero_id[:] = nzeros_id
+dsnew.close()
