@@ -1023,7 +1023,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
   real,dimension(:),allocatable :: nonzero_value
   integer,dimension(:),allocatable :: nonzero_id, non_row
   integer :: nonz
-  real,parameter :: sparsefrac=0.1
+  real,parameter :: sparsefrac=0.02
   integer :: ncount
   integer :: dall
 
@@ -1287,8 +1287,9 @@ call gridder(velf)
          ALLOCATE(ttnr(idm2,idm1))
          ALLOCATE(nstsr(idm2,idm1))
       ENDIF
-      ttnr=ttn
-      nstsr=nsts
+       ! print*,nnzb,nnxb,nnz,nnx,idm1,idm2
+      ttnr(1:nnzb,1:nnxb)=ttn(1:nnzb,1:nnxb)
+      nstsr(1:nnzb,1:nnxb)=nsts(1:nnzb,1:nnxb)
       ogx=vnl
       ogz=vnt
       grdfx=sgdl

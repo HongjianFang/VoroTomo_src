@@ -860,7 +860,7 @@ call check(nf90_inq_varid(ncid,"Non_value",nzeroid))
 call check(nf90_inq_varid(ncid,"Non_row",nrowid))
 call check(nf90_inq_varid(ncid,"Non_id",nonid))
 allocate(nzerosurf(nnfdsurf),nrowsurf(checkntr),nzero_idsurf(nnfdsurf),stat=checkstat)
-print*,nnfdsurf,checkntr
+!print*,nnfdsurf,checkntr
 if(checkstat>0) stop 'error allocating memnetcdf'
 call check(nf90_get_var(ncid,nzeroid,nzerosurf))
 call check(nf90_get_var(ncid,nrowid,nrowsurf))
@@ -1059,8 +1059,8 @@ IF(nrow.GT.0)THEN
    cnt = 0
    DO j=jstep,jup
 !      READ(36,*)fcoln(j),frech(j)
-        fcoln(j) = nzero_idsurf(j-cnt1)
-        frech(j) = nzerosurf(j-cnt1)
+        fcoln(j) = nzero_idsurf(j-cnt1-jstep_tmpb)
+        frech(j) = nzerosurf(j-cnt1-jstep_tmpb)
 if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
 cnt = cnt+1
 tmp1 = frech(j)
@@ -1109,7 +1109,7 @@ write(6,*)'data for body wave & surface wave', ntr-ntrsurf, ntrsurf
 !----------------------------------------------------------------
 
 ntr=istep-1
-!print*,'traces number',ntr
+print*,'traces number',ntr
 !
 ! Rearrange Frechet derivatives to separate out source parameter
 ! classes only if sources are inverted for.
@@ -1141,7 +1141,12 @@ ENDIF
 ! Now construct the transpose of the Frechet matrix
 !
 !print*,nnfd,npi,ntr
-ALLOCATE(tfrech(nnfd),tfcoln(nnfd),tcnfe(0:npi),stpv(ntr))
+if (inversionScheme == 1) then
+! it seems something wrong with the allocating for transpose G, it takes a long
+! time to finish this part, pay attention when using subspace to invert 
+! not a problem if using lsmr, for now
+ALLOCATE(tfrech(nnfd),tfcoln(nnfd),tcnfe(0:npi),stpv(ntr),stat=checkstat)
+if(checkstat>0) stop 'error allocating transpose G'
 stpv=1
 jstep=0
 tcnfe(0)=0
@@ -1160,6 +1165,7 @@ DO i=1,npi
    tcnfe(i)=jstep
 ENDDO
 DEALLOCATE(stpv)
+print*,'finished reading G and transpose G'
 !print*,'nozeros in transpose',jstep
 !print*,tfrech(jstep-5:jstep+5)
 !print*,tfrech(nnfd-20:nnfd)
@@ -1168,7 +1174,6 @@ DEALLOCATE(stpv)
 ! require for the subspace inversion scheme. Call a
 ! routine for performing the inversion
 !
-if (inversionScheme == 1) then
 CALL subspace
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
@@ -1848,7 +1853,7 @@ ENDIF
 ! Final deallocation
 !
 DEALLOCATE(frech,fcoln,cnfe)
-DEALLOCATE(tfrech,tfcoln,tcnfe)
+if(inversionScheme==1) DEALLOCATE(tfrech,tfcoln,tcnfe)
 DEALLOCATE(dobs,dmod,cd)
 DEALLOCATE(mo,mc,cm,ecmi,dm)
 !DEALLOCATE(paths,patht)
