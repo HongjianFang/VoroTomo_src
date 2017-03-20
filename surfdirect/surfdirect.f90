@@ -194,7 +194,8 @@
       enddo
       enddo
 
-      do m=1,vgrid(1,1)%nr-1
+        depz(1) = 0
+      do m=2,vgrid(1,1)%nr-1
       depz(m) = earthr-vgrid(1,1)%r(vgrid(1,1)%nr-m)
       enddo
       nz = vgrid(1,1)%nr
@@ -219,9 +220,9 @@
       depz(nz+1:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+2)
     numgrid2 = vgrid(2,1)%nnode
     numgrid1 = vgrid(1,1)%nnode
-        print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
-    print*, ngrid1sep+2,nz+1-ngrid2sep
-    print*,vel(5,5,1:nz+2)
+        !print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
+    !print*, ngrid1sep+2,nz+1-ngrid2sep
+    !print*,vel(5,5,1:nz+2)
     do m=1,n_vtypes
          do j=1,vgrid(1,m)%nlat
             do k=1,vgrid(1,m)%nlong
@@ -246,6 +247,7 @@
 ! frechet direvitives for surface wave data
 !print*,depz
 !print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
+!print*,vel(5,5,1:nz)
         !open(34,file='frechetsurf.dat')
         open(35,file='ttimessurf.dat')
         call CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &

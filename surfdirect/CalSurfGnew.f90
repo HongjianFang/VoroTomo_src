@@ -146,12 +146,13 @@
 !    enddo
 !  enddo
         print*,'finishing depth kernels'
-       ! print*,sen_vsRc(5,10,:)
-       ! print*,
-       ! print*,sen_vpRc(5,20,:)
-       ! print*,
-       ! print*,sen_rhoRc(5,30,:)
-       ! print*,
+        !print*,sen_vsRc(5,10,:)
+        !print*,
+        !print*,sen_vpRc(5,20,:)
+        !print*,
+        !print*,sen_rhoRc(5,30,:)
+        !print*,
+        !print*,pvrc(100,:)
 
 
              end subroutine depthkernel
@@ -1200,6 +1201,8 @@ call gridder(velf)
 !
      ALLOCATE(velnb(nnz,nnx))
       velnb(1:nnz,1:nnx)=veln(1:nnz,1:nnx)
+      print*,velnb
+        stop
       nnxb=nnx
       nnzb=nnz
       dnxb=dnx
@@ -2165,21 +2168,25 @@ fdm=0
          rgx(j+1)=gox
          ipx=1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipx.GE.nnx)THEN
          rgx(j+1)=gox+(nnx-1)*dnx
          ipx=nnx-1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipz.LT.1)THEN
          rgz(j+1)=goz
          ipz=1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipz.GE.nnz)THEN
          rgz(j+1)=goz+(nnz-1)*dnz
          ipz=nnz-1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
 !
 !     Calculate the Frechet derivatives if required.
