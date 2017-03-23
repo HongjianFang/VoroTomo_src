@@ -150,6 +150,7 @@ integer vpvs
 integer cnt,tmp
 real(kind=i5) tmp1
 integer jstep_tmp,jstep_tmpb,jstep_tmps
+real(kind=i5),parameter:: depthsm=3.0
 
 character (len=40) cdum
 !integer flex,choosedsrc
@@ -1268,16 +1269,16 @@ IF(nvpi.GT.0)THEN
             iw(1+jstep+1) = istep
             iw(1+jstep+2) = istep
             iw(1+jstep+3) = istep
-            rw(jstep+1) = 1.0*etav
-            rw(jstep+2) = -2.0*etav
-            rw(jstep+3) = 1.0*etav
+            rw(jstep+1) = 1.0*etav/depthsm
+            rw(jstep+2) = -2.0*etav/depthsm
+            rw(jstep+3) = 1.0*etav/depthsm
             col(jstep+1) = is1 
             col(jstep+2) = is2
             col(jstep+3) = is3
             istep = istep + 1
             jstep = jstep + 3
           else
-            rw(jstep+1) = 5*etav
+            rw(jstep+1) = 5*etav/depthsm
             col(jstep+1) = is2
             iw(1+jstep+1) = istep
             jstep = jstep+1

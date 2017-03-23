@@ -929,7 +929,8 @@ subroutine CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxdf,gozdf,dvxdf,dvzdf,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrcf, &
-              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall, &
+                sgs,sgdlf,sparsefrac)
 USE globalp
 USE traveltime
 IMPLICIT NONE
@@ -937,7 +938,7 @@ IMPLICIT NONE
 !CHARACTER (LEN=40) :: sources,receivers,otimes
 !CHARACTER (LEN=30) :: travelt,rtravel,wrays,cdum
 INTEGER :: i,j,k,l,nsrc,tnr,urg
-INTEGER :: sgs,isx,isz,sw,idm1,idm2,nnxb,nnzb
+INTEGER :: sgs,sgdlf,isx,isz,sw,idm1,idm2,nnxb,nnzb
 INTEGER :: ogx,ogz,grdfx,grdfz,maxbt
 REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
 !REAL(KIND=i10), DIMENSION (:,:), ALLOCATABLE :: scxf,sczf
@@ -1024,7 +1025,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
   real,dimension(:),allocatable :: nonzero_value
   integer,dimension(:),allocatable :: nonzero_id, non_row
   integer :: nonz
-  real,parameter :: sparsefrac=0.02
+  real :: sparsefrac
   integer :: ncount
   integer :: dall
 
@@ -1032,8 +1033,8 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
 gdx=5                                                                           
 gdz=5                                                                           
 asgr=1                                                                          
-sgdl=8                                                                          
-sgs=8                                                                           
+sgdl=sgdlf                                                                          
+!sgs=5                                                                           
 earth=6371.0                                                                    
 fom=1                                                                           
 snb=0.5
@@ -1142,7 +1143,7 @@ kmax3=kmaxRc+kmaxRg+kmaxLc
 
 ! netcdf variables, hongjian fang@ustc 2017/03/02
 nonz = sparsefrac*dall*nz*nx*ny
-print*,nonz,sparsefrac,nz,nx,ny,dall
+!print*,nonz,sparsefrac,nz,nx,ny,dall
 allocate(non_row(dall),stat=checkstat)
    IF(checkstat > 0)THEN
       WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: non_row'
@@ -1201,8 +1202,6 @@ call gridder(velf)
 !
      ALLOCATE(velnb(nnz,nnx))
       velnb(1:nnz,1:nnx)=veln(1:nnz,1:nnx)
-      print*,velnb
-        stop
       nnxb=nnx
       nnzb=nnz
       dnxb=dnx
@@ -1282,6 +1281,7 @@ call gridder(velf)
       ALLOCATE(ttnr(nnzb,nnxb))
       ALLOCATE(nstsr(nnzb,nnxb))
       IF(nnx.GT.nnxb.OR.nnz.GT.nnzb)THEN
+        print*,'what the fuck'
          idm1=nnx
          IF(nnxb.GT.idm1)idm1=nnxb
          idm2=nnz
@@ -1290,9 +1290,11 @@ call gridder(velf)
          ALLOCATE(ttnr(idm2,idm1))
          ALLOCATE(nstsr(idm2,idm1))
       ENDIF
-       ! print*,nnzb,nnxb,nnz,nnx,idm1,idm2
-      ttnr(1:nnzb,1:nnxb)=ttn(1:nnzb,1:nnxb)
-      nstsr(1:nnzb,1:nnxb)=nsts(1:nnzb,1:nnxb)
+        !print*,nnzb,nnxb,nnz,nnx,idm1,idm2
+        ttnr = ttn
+        nstsr = nsts
+!      ttnr(1:nnzb,1:nnxb)=ttn(1:nnzb,1:nnxb)
+!      nstsr(1:nnzb,1:nnxb)=nsts(1:nnzb,1:nnxb)
       ogx=vnl
       ogz=vnt
       grdfx=sgdl

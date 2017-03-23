@@ -11,6 +11,8 @@
         integer invstep
         integer syn
         real noisethresh
+        integer sgs,sgdl
+         real sparsefrac
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -86,6 +88,9 @@
 	endif
         read(64,*)syn
         read(64,*)noisethresh
+!       hidden bugs, read some parameters that control the forward oporator from outside 
+        read(64,*) sgs,sgdl
+        read(64,*) sparsefrac
 	close(64)
         kmax=kmaxRc+kmaxRg+kmaxLc+kmaxLg
 
@@ -254,7 +259,8 @@
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrc, &
-              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall,& 
+              sgs,sgdl,sparsefrac)
          !close(34)
          close(35)
          print*,'surface wave frechet direvitives done'
