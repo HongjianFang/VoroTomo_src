@@ -73,6 +73,7 @@ CHARACTER (LEN=30) :: ifilesrc,ifilercv,ofilesd,ofilesew
 CHARACTER (LEN=30) :: ofilesns,ofilercd,ofilercew,ofilercns
 CHARACTER (LEN=30) :: ofilergc,ofilesgc,ofilercgc,ofilegcb
 CHARACTER (LEN=30) :: ofilegcv,ofilegci
+character*20 argv
 !
 ! sldep = slice depth
 ! slns = NS slice
@@ -174,7 +175,8 @@ sep='>'
 if (iargc()<1) then
 OPEN(UNIT=10,FILE='gmtslice.in',STATUS='old')
 else
-OPEN(UNIT=10,FILE='gmtslicedws.in',STATUS='old')
+call getarg(1,argv)
+OPEN(UNIT=10,FILE=argv,STATUS='old')
 endif
 !
 ! Read in input file names
@@ -809,34 +811,34 @@ do ii = 1,nslice
 !
 ! Compute interface cross-sections and write to file
 !
-  OPEN(UNIT=30,FILE=trim(ofilensi)//trim(fileno),STATUS='unknown')
-  ALLOCATE(inta(1,nnz), STAT=checkstat)
-  IF(checkstat > 0)THEN
-     WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
-  ENDIF
-  rnode=INT((slns(ii)-gop(1))/gsip)+1
-  u=ABS(slns(ii)-gop(1)-(rnode-1)*gsip)/gsip
-  IF(rnode.EQ.ninp)THEN
-     rnode=rnode-1
-     u=1.0
-  ENDIF
-  DO i=1,ni
-     DO j=1,nnz
-        idm1=INT((j-1)*rgst/gsit)+1
-        v=(j-1)*rgst-(idm1-1)*gsit
-        v=v/gsit
-        IF(idm1.EQ.nint)THEN
-           idm1=idm1-1
-           v=1.0
-        ENDIF
-        CALL ibspline(idm1,rnode,v,u,1,j,i)
-        rd1=got(1)-rgst*(j-1)
-        WRITE(30,*)rd1,inta(1,j)
-     ENDDO
-     WRITE(30,'(a1)')sep
-  ENDDO
-  CLOSE(30)
-  DEALLOCATE(inta, STAT=checkstat)
+!  OPEN(UNIT=30,FILE=trim(ofilensi)//trim(fileno),STATUS='unknown')
+!  ALLOCATE(inta(1,nnz), STAT=checkstat)
+!  IF(checkstat > 0)THEN
+!     WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
+!  ENDIF
+!  rnode=INT((slns(ii)-gop(1))/gsip)+1
+!  u=ABS(slns(ii)-gop(1)-(rnode-1)*gsip)/gsip
+!  IF(rnode.EQ.ninp)THEN
+!     rnode=rnode-1
+!     u=1.0
+!  ENDIF
+!  DO i=1,ni
+!     DO j=1,nnz
+!        idm1=INT((j-1)*rgst/gsit)+1
+!        v=(j-1)*rgst-(idm1-1)*gsit
+!        v=v/gsit
+!        IF(idm1.EQ.nint)THEN
+!           idm1=idm1-1
+!           v=1.0
+!        ENDIF
+!        CALL ibspline(idm1,rnode,v,u,1,j,i)
+!        rd1=got(1)-rgst*(j-1)
+!        WRITE(30,*)rd1,inta(1,j)
+!     ENDDO
+!     WRITE(30,'(a1)')sep
+!  ENDDO
+!  CLOSE(30)
+!  DEALLOCATE(inta, STAT=checkstat)
 enddo
   DEALLOCATE(vela,lay, STAT=checkstat)
   IF(checkstat > 0)THEN
@@ -885,7 +887,7 @@ do ii = 1,nslice
   IF(ni.GT.2)THEN
      ALLOCATE(inta(1,nnz), STAT=checkstat)
      IF(checkstat > 0)THEN
-        WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
+        WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta, in ewdirection'
      ENDIF
      DO i=2,ni-1
 !
@@ -962,35 +964,35 @@ do ii = 1,nslice
 !
 ! Compute interface cross-sections and write to file
 !
-  OPEN(UNIT=30,FILE=trim(ofileewi)//trim(fileno),STATUS='unknown')
-  ALLOCATE(inta(1,nnz), STAT=checkstat)
-  IF(checkstat > 0)THEN
-     WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
-  ENDIF
-  rnode=INT((got(1)-slew(ii))/gsit)+1
-  u=ABS(got(1)-slew(ii)-(rnode-1)*gsit)/gsit
-  IF(rnode.EQ.nint)THEN
-     rnode=rnode-1
-     u=1.0
-  ENDIF
-  DO i=1,ni
-     DO j=1,nnz
-        idm1=INT((j-1)*rgsp/gsip)+1
-        v=(j-1)*rgsp-(idm1-1)*gsip
-        v=v/gsip
-        IF(idm1.EQ.ninp)THEN
-           idm1=idm1-1
-           v=1.0
-        ENDIF
-        CALL ibspline(rnode,idm1,u,v,1,j,i)
-        rd1=gop(1)+rgsp*(j-1)
-        WRITE(30,*)rd1,inta(1,j)
-     ENDDO
-     WRITE(30,'(a1)')sep
-  ENDDO
-  CLOSE(30)
+!  OPEN(UNIT=30,FILE=trim(ofileewi)//trim(fileno),STATUS='unknown')
+!  ALLOCATE(inta(1,nnz), STAT=checkstat)
+!  IF(checkstat > 0)THEN
+!     WRITE(6,*)'Error with ALLOCATE: PROGRAM slice: REAL inta'
+!  ENDIF
+!  rnode=INT((got(1)-slew(ii))/gsit)+1
+!  u=ABS(got(1)-slew(ii)-(rnode-1)*gsit)/gsit
+!  IF(rnode.EQ.nint)THEN
+!     rnode=rnode-1
+!     u=1.0
+!  ENDIF
+!  DO i=1,ni
+!     DO j=1,nnz
+!        idm1=INT((j-1)*rgsp/gsip)+1
+!        v=(j-1)*rgsp-(idm1-1)*gsip
+!        v=v/gsip
+!        IF(idm1.EQ.ninp)THEN
+!           idm1=idm1-1
+!           v=1.0
+!        ENDIF
+!        CALL ibspline(rnode,idm1,u,v,1,j,i)
+!        rd1=gop(1)+rgsp*(j-1)
+!        WRITE(30,*)rd1,inta(1,j)
+!     ENDDO
+!     WRITE(30,'(a1)')sep
+!  ENDDO
+!  CLOSE(30)
 enddo
-  DEALLOCATE(vela,lay,inta, STAT=checkstat)
+  DEALLOCATE(vela,lay, STAT=checkstat)
   IF(checkstat > 0)THEN
      WRITE(6,*)'Error with DEALLOCATE: PROGRAM slice: REAL vela,lay,inta'
   ENDIF

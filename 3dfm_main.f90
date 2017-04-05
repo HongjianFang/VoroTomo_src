@@ -1396,6 +1396,7 @@ endif  ! n_receivers > 0 and not in no_pp_mode
 
 ! netcdf variables, hongjian fang@ustc 2017/03/02
 ! call netcdf to save non_row,nonzero_id/value
+! bug hidden here when there are more than one ray for some receivers
    call savetonetcdf(n_receivers,ncount,non_row,nonzero_id,nonzero_value)
    deallocate(non_row,nonzero_id,nonzero_value)
 

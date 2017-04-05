@@ -1016,7 +1016,7 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        integer numgrid2,numgrid1
        integer n_interfaces
        integer idx
-       real,parameter::ftol = 1.e-2
+       real,parameter::ftol = 1.e-3
        real nnzero(2*numgrid1+2*numgrid2)
        integer idxnnzero(2*numgrid1+2*numgrid2)
        integer sortidxnnzero(2*numgrid1+2*numgrid2)
