@@ -146,12 +146,13 @@
 !    enddo
 !  enddo
         print*,'finishing depth kernels'
-       ! print*,sen_vsRc(5,10,:)
-       ! print*,
-       ! print*,sen_vpRc(5,20,:)
-       ! print*,
-       ! print*,sen_rhoRc(5,30,:)
-       ! print*,
+        !print*,sen_vsRc(5,10,:)
+        !print*,
+        !print*,sen_vpRc(5,20,:)
+        !print*,
+        !print*,sen_rhoRc(5,30,:)
+        !print*,
+        !print*,pvrc(100,:)
 
 
              end subroutine depthkernel
@@ -928,7 +929,8 @@ subroutine CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxdf,gozdf,dvxdf,dvzdf,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrcf, &
-              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall, &
+                sgs,sgdlf,sparsefrac)
 USE globalp
 USE traveltime
 IMPLICIT NONE
@@ -936,7 +938,7 @@ IMPLICIT NONE
 !CHARACTER (LEN=40) :: sources,receivers,otimes
 !CHARACTER (LEN=30) :: travelt,rtravel,wrays,cdum
 INTEGER :: i,j,k,l,nsrc,tnr,urg
-INTEGER :: sgs,isx,isz,sw,idm1,idm2,nnxb,nnzb
+INTEGER :: sgs,sgdlf,isx,isz,sw,idm1,idm2,nnxb,nnzb
 INTEGER :: ogx,ogz,grdfx,grdfz,maxbt
 REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
 !REAL(KIND=i10), DIMENSION (:,:), ALLOCATABLE :: scxf,sczf
@@ -1014,17 +1016,25 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        integer numgrid2,numgrid1
        integer n_interfaces
        integer idx
-       real,parameter::ftol = 1.e-2
+       real,parameter::ftol = 1.e-3
        real nnzero(2*numgrid1+2*numgrid2)
        integer idxnnzero(2*numgrid1+2*numgrid2)
        integer sortidxnnzero(2*numgrid1+2*numgrid2)
        integer count2
+! netcdf variables, hongjian fang@ustc 2017/03/02
+  real,dimension(:),allocatable :: nonzero_value
+  integer,dimension(:),allocatable :: nonzero_id, non_row
+  integer :: nonz
+  real :: sparsefrac
+  integer :: ncount
+  integer :: dall
+
 
 gdx=5                                                                           
 gdz=5                                                                           
 asgr=1                                                                          
-sgdl=8                                                                          
-sgs=8                                                                           
+sgdl=sgdlf                                                                          
+!sgs=5                                                                           
 earth=6371.0                                                                    
 fom=1                                                                           
 snb=0.5
@@ -1130,6 +1140,28 @@ sen_rho=0
 kmax1=kmaxRc
 kmax2=kmaxRc+kmaxRg
 kmax3=kmaxRc+kmaxRg+kmaxLc
+
+! netcdf variables, hongjian fang@ustc 2017/03/02
+nonz = sparsefrac*dall*nz*nx*ny
+!print*,nonz,sparsefrac,nz,nx,ny,dall
+allocate(non_row(dall),stat=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: non_row'
+   ENDIF
+allocate(nonzero_value(nonz),stat=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: nonzero_value'
+   ENDIF
+allocate(nonzero_id(nonz),stat=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: nonzero_id'
+   ENDIF
+non_row = 0
+nonzero_value = 0.
+nonzero_id = 0
+ncount = 0
+
+
 do knumi=1,kmax
 do srcnum=1,nsrcsurf1(knumi)
 	if(wavetype(srcnum,knumi)==2.and.igrt(srcnum,knumi)==0) then
@@ -1249,6 +1281,7 @@ call gridder(velf)
       ALLOCATE(ttnr(nnzb,nnxb))
       ALLOCATE(nstsr(nnzb,nnxb))
       IF(nnx.GT.nnxb.OR.nnz.GT.nnzb)THEN
+        print*,'what the fuck'
          idm1=nnx
          IF(nnxb.GT.idm1)idm1=nnxb
          idm2=nnz
@@ -1257,8 +1290,11 @@ call gridder(velf)
          ALLOCATE(ttnr(idm2,idm1))
          ALLOCATE(nstsr(idm2,idm1))
       ENDIF
-      ttnr=ttn
-      nstsr=nsts
+        !print*,nnzb,nnxb,nnz,nnx,idm1,idm2
+        ttnr = ttn
+        nstsr = nsts
+!      ttnr(1:nnzb,1:nnxb)=ttn(1:nnzb,1:nnxb)
+!      nstsr(1:nnzb,1:nnxb)=nsts(1:nnzb,1:nnxb)
       ogx=vnl
       ogz=vnt
       grdfx=sgdl
@@ -1388,7 +1424,8 @@ dsurf(count1)=cbst1
         !enddo
 
 
-      write(34,*) count1,count(abs(row)>ftol)
+!      write(34,*) count1,count(abs(row)>ftol)
+      non_row(count1) = count(abs(row)>ftol)
       !print*,nx,ny,nz,nparpi
       !print*,
       !do ii=1,2*nparpi
@@ -1415,13 +1452,11 @@ dsurf(count1)=cbst1
           count2=count2+1
           idxnnzero(count2)=2*numgrid1+(ii-1)*ny*nz2+(jj-1)*nz2+kk
           nnzero(count2) = row(idx)
-         !write(34,*) 2*numgrid1+(ii-1)*ny*nz2+(jj-1)*nz2+kk,-row(idx)
         endif
         if (abs(row(idx))>ftol .and. kk>ngrid2sep+2) then 
           count2=count2+1
           idxnnzero(count2)=(ii-1)*ny*nz1+(jj-1)*nz1+(nz1-1-ngrid1sep+kk-ngrid2sep-2)
           nnzero(count2) = row(idx)
-         !write(34,*) (ii-1)*ny*nz1+(jj-1)*nz1+(ngrid1sep+kk-ngrid2sep), -row(idx)
         endif
         enddo
         enddo
@@ -1434,13 +1469,11 @@ dsurf(count1)=cbst1
           count2=count2+1
           idxnnzero(count2)=2*numgrid1+numgrid2+(ii-1)*ny*nz2+(jj-1)*nz2+kk
           nnzero(count2) = row(nparpi+idx)
-         !write(34,*) 2*numgrid1+numgrid2+(ii-1)*ny*nz2+(jj-1)*nz2+kk, -row(nparpi+idx)
         endif
         if (abs(row(nparpi+idx))>ftol .and. kk>ngrid2sep+1) then 
           count2=count2+1
           idxnnzero(count2)=numgrid1+(ii-1)*ny*nz1+(jj-1)*nz1+(nz1-1-ngrid1sep+kk-ngrid2sep-2)
           nnzero(count2) = row(nparpi+idx)
-         !write(34,*) numgrid1+(ii-1)*ny*nz1+(jj-1)*nz1+(ngrid1sep+kk-ngrid2sep), -row(nparpi+idx)
         endif
         enddo
         enddo
@@ -1448,7 +1481,10 @@ dsurf(count1)=cbst1
       endif 
       call argsort(idxnnzero,sortidxnnzero,count2)
       do i=1,count2
-      write(34,*) idxnnzero(sortidxnnzero(i)), nnzero(sortidxnnzero(i))
+        ncount = ncount +1
+        nonzero_id(ncount) = idxnnzero(sortidxnnzero(i))
+        nonzero_value(ncount) = nnzero(sortidxnnzero(i))
+      !write(34,*) idxnnzero(sortidxnnzero(i)), nnzero(sortidxnnzero(i))
       enddo
 !       do jj=1,nx-2
 !    	do kk=1,ny-2
@@ -1496,6 +1532,14 @@ enddo
 enddo
 deallocate(fdm)
 deallocate(velv,veln,ttn,nsts,btg)
+
+! netcdf variables, hongjian fang@ustc 2017/03/02
+! call netcdf to save non_row,nonzero_id/value
+        print*,'begin netcdf'
+   call savetonetcdf(dall,ncount,non_row,nonzero_id,nonzero_value)
+        print*,'end netcdf'
+   deallocate(non_row,nonzero_id,nonzero_value)
+
 END subroutine
 
 SUBROUTINE gridder(pv)
@@ -2126,21 +2170,25 @@ fdm=0
          rgx(j+1)=gox
          ipx=1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipx.GE.nnx)THEN
          rgx(j+1)=gox+(nnx-1)*dnx
          ipx=nnx-1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipz.LT.1)THEN
          rgz(j+1)=goz
          ipz=1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
       IF(ipz.GE.nnz)THEN
          rgz(j+1)=goz+(nnz-1)*dnz
          ipz=nnz-1
          rbint=1
+        print*,surfrcx,surfrcz,scx,scz
       ENDIF
 !
 !     Calculate the Frechet derivatives if required.

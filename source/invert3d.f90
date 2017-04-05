@@ -85,6 +85,7 @@ END MODULE globalp
 PROGRAM invert
 USE globalp
 use lsmrModule, only:lsmr
+use netcdf
 IMPLICIT NONE
 INTEGER :: i,j,k,l,m
 INTEGER ::  minsd,comfd,ni,nvgt,vgid,mvnr,mvnp,mvnt,cstp
@@ -149,10 +150,19 @@ integer vpvs
 integer cnt,tmp
 real(kind=i5) tmp1
 integer jstep_tmp,jstep_tmpb,jstep_tmps
+real(kind=i5),parameter:: depthsm=3.0
 
 character (len=40) cdum
 !integer flex,choosedsrc
 real(kind=i5) radall,latall,lonall
+
+!netcdf begin here...hongjian@ustc 2017/03/03
+integer :: ncid,nzeroid,nrowid,nonid
+integer :: nzerodimid,nrowdimid
+integer :: checkntr,nnfdsurf
+integer :: ncount,cnt1
+real(kind=i5),allocatable,dimension(:)::nzero,nzerosurf
+integer,allocatable,dimension(:)::nzero_id,nzero_idsurf,nrowarr,nrowsurf
 !----------------------------------------------------------------
 !
 ! refvgfile = Reference velocity grid file
@@ -747,6 +757,7 @@ ENDIF
 nnfd = 0
 ntr = 0
 nnode = nvpi/2
+cnt1 = 0
 if(surfjoint==0.or.surfjoint==2) then
 OPEN(UNIT=10,FILE=otfile,STATUS='old')
 OPEN(UNIT=20,FILE=mtfile,STATUS='old')
@@ -783,59 +794,103 @@ CLOSE(30)
 ! will first read in the entire matrix to determine the
 ! number of non-zeo elements.
 !
-OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
+
+!netcdf begin here...hongjian@ustc 2017/03/03
+call check(nf90_open('frechet.nc',nf90_nowrite,ncid))
+call check(nf90_inq_dimid(ncid,"nzero",nzerodimid))
+call check(nf90_inq_dimid(ncid,'nrow',nrowdimid))
+call check(nf90_inquire_dimension(ncid,nzerodimid,len = nnfd ))
+call check(nf90_inquire_dimension(ncid,nrowdimid,len = checkntr ))
+call check(nf90_inq_varid(ncid,"Non_value",nzeroid))
+call check(nf90_inq_varid(ncid,"Non_row",nrowid))
+call check(nf90_inq_varid(ncid,"Non_id",nonid))
+allocate(nzero(nnfd),nrowarr(checkntr),nzero_id(nnfd),stat=checkstat)
+if(checkstat>0) stop 'error allocating iw'
+call check(nf90_get_var(ncid,nzeroid,nzero))
+call check(nf90_get_var(ncid,nrowid,nrowarr))
+call check(nf90_get_var(ncid,nonid,nzero_id))
+call check(nf90_close(ncid))
+
+if(checkntr/=ntr) print*,'something is wrong'
+!OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
+ncount = 0
+cnt = 0
 DO i=1,ntr
-   READ(30,*)idm1,idm2,idm3,idm4,nrow
-   nnfd=nnfd+nrow
-   cnt = 0
-   IF(nrow.GT.0)THEN
-      DO j=1,nrow
-         READ(30,*)tmp
-         if(tmp>nnode.and.tmp<=nvpi)cnt=cnt+1 
+   !READ(30,*)idm1,idm2,idm3,idm4,nrow
+   !nnfd=nnfd+nrow
+   IF(nrowarr(i).GT.0)THEN
+      DO j=1,nrowarr(i)
+    !     READ(30,*)tmp
+         ncount = ncount+1
+         if(nzero_id(ncount)>nnode.and.nzero_id(ncount)<=nvpi)cnt=cnt+1 
       ENDDO
+   ENDIF
+ENDDO
+if (nnfd/=ncount) print*,'something is wrong'
 if(vpvs==1) then
 nnfd = nnfd+cnt
 endif
-   ENDIF
-ENDDO
-CLOSE(30)
+!CLOSE(30)
 endif
 
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
 !surfjoint = 1
-frdatfilesurf = 'frechetsurf.dat'
+!frdatfilesurf = 'frechetsurf.dat'
 otfilesurf = 'otimessurf.dat'
 mtfilesurf = 'mtimessurf.dat'
 ntrsurf = 0
 jstep_tmp = 0
 jstep_tmpb = 0
 jstep_tmps = 0
+nnfdsurf = 0
 
 if (pvi>0.and.(surfjoint == 1.or.surfjoint==2)) then
-OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
+!OPEN(UNIT=30,FILE=frdatfilesurf,STATUS='old')
 OPEN(UNIT=35,FILE=otfilesurf,STATUS='old')
 OPEN(UNIT=34,FILE=mtfilesurf,STATUS='old')
 read(35,*) ntrsurf
 
-
+!netcdf begin here...hongjian@ustc 2017/03/04
+call check(nf90_open("frechetsurf.nc",nf90_nowrite,ncid))
+call check(nf90_inq_dimid(ncid,"nzero",nzerodimid))
+call check(nf90_inq_dimid(ncid,'nrow',nrowdimid))
+call check(nf90_inquire_dimension(ncid,nzerodimid,len = nnfdsurf ))
+call check(nf90_inquire_dimension(ncid,nrowdimid,len = checkntr ))
+call check(nf90_inq_varid(ncid,"Non_value",nzeroid))
+call check(nf90_inq_varid(ncid,"Non_row",nrowid))
+call check(nf90_inq_varid(ncid,"Non_id",nonid))
+allocate(nzerosurf(nnfdsurf),nrowsurf(checkntr),nzero_idsurf(nnfdsurf),stat=checkstat)
+!print*,nnfdsurf,checkntr
+if(checkstat>0) stop 'error allocating memnetcdf'
+call check(nf90_get_var(ncid,nzeroid,nzerosurf))
+call check(nf90_get_var(ncid,nrowid,nrowsurf))
+call check(nf90_get_var(ncid,nonid,nzero_idsurf))
+call check(nf90_close(ncid))
+!print*,nzero_idsurf(1:50)
+if(checkntr/=ntrsurf) print*,'something is wrong'
+cnt = 0
+ncount = 0
 DO i=1,ntrsurf
-   READ(30,*)idm1,nrow
-   nnfd=nnfd+nrow
-   cnt = 0
-   IF(nrow.GT.0)THEN
-      DO j=1,nrow
-         READ(30,*)tmp
+!   READ(30,*)idm1,nrow
+!   nnfd=nnfd+nrow
+   IF(nrowsurf(i).GT.0)THEN
+      DO j=1,nrowsurf(i)
+         !READ(30,*)tmp
+         ncount = ncount+1
+         tmp = nzero_idsurf(ncount)
          if(tmp>nnode.and.tmp<=nvpi)cnt=cnt+1 
       ENDDO
-if(vpvs==1) then
-nnfd = nnfd+cnt
-endif
    ENDIF
 ENDDO
-CLOSE(30)
+if(ncount/=nnfdsurf) print*,'something is wrong'
+if(vpvs==1) then
+nnfdsurf = nnfdsurf+cnt
+endif
+!CLOSE(30)
 endif
 ntr = ntr+ntrsurf
+nnfd = nnfd + nnfdsurf
 !----------------------------------------------------------------
 
 ALLOCATE(frech(nnfd),fcoln(nnfd),cnfe(0:ntr))
@@ -846,7 +901,7 @@ jstep=0
 kstep=0
 if(surfjoint==0.or.surfjoint==2) then
 
-OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
+!OPEN(UNIT=30,FILE=frdatfile,STATUS='old')
 !
 ! If teleseismic sources exist, we need to
 ! read in reference teleseismic traveltimes
@@ -889,7 +944,10 @@ DO i=1,ntr-ntrsurf
    IF(ntels.GT.0)THEN
       IF(tsid(idm2).EQ.1)istel(i)=idm2
    ENDIF
+! bug hidden here, commented by hongjian, for testing, does not make sense to me
+! but no correction seems worse, and changing - to + makes the result even more worse
    IF(nspi.GT.0.AND.invstep.GT.1)dmod(istep)=dmod(istep)-rd1
+
 !
 !  Read in reference teleseismic traveltimes if required
 !
@@ -922,19 +980,22 @@ DO i=1,ntr-ntrsurf
       ENDIF
    ENDIF
    IF(dobs(istep).LT.-50.0)iswt=0
-   READ(30,*)idm1,idm2,idm3,idm4,nrow
+   !READ(30,*)idm1,idm2,idm3,idm4,nrow
    if(inversionScheme==1) then
    cd(istep)=cd(istep)**2
 !   else
 !   cd(istep)=cd(istep)/3.0
    endif
+   nrow = nrowarr(i)
    cnfe(istep)=jstep+nrow
    IF(nrow.GT.0)THEN
       jstep=jstep+1
       jup=jstep+nrow-1
       cnt = 0
       DO j=jstep,jup
-         READ(30,*)fcoln(j),frech(j)
+         !READ(30,*)fcoln(j),frech(j)
+         fcoln(j) = nzero_id(j-cnt1)
+         frech(j) = nzero(j-cnt1)
 if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
 cnt = cnt+1
 tmp1 = frech(j)
@@ -946,6 +1007,7 @@ endif
       IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
          jstep=jup
 if(vpvs==1) then
+cnt1 = cnt1 + cnt
 jstep=jstep+cnt
 cnfe(istep)=cnfe(istep)+cnt
 endif
@@ -968,8 +1030,9 @@ endif
 ENDDO
 CLOSE(10)
 CLOSE(20)
-CLOSE(30)
+!CLOSE(30)
 IF(ntels.GT.0)CLOSE(40)
+deallocate(nzero,nzero_id,nrowarr)
 jstep_tmpb = jstep
 endif ! for data type (surfjoint==0 or 2)
 ! hongjian fang @ethz... adding surface wave data
@@ -978,13 +1041,16 @@ endif ! for data type (surfjoint==0 or 2)
 if (surfjoint==1) then
 istep=1
 jstep=0
+cnfe(0) = 0
 endif
 if (pvi>0.and.(surfjoint == 1.or.surfjoint==2)) then
-OPEN(UNIT=36,FILE=frdatfilesurf,STATUS='old')
+!OPEN(UNIT=36,FILE=frdatfilesurf,STATUS='old')
+cnt1 = 0
 do i=1,ntrsurf
 read(34,*) dmod(istep)
 read(35,*) dobs(istep),cd(istep)
-READ(36,*)idm1,nrow
+!READ(36,*)idm1,nrow
+nrow = nrowsurf(i)
 if(inversionScheme==1) then
 cd(istep)=cd(istep)**2
 !else
@@ -996,7 +1062,9 @@ IF(nrow.GT.0)THEN
    jup=jstep+nrow-1
    cnt = 0
    DO j=jstep,jup
-      READ(36,*)fcoln(j),frech(j)
+!      READ(36,*)fcoln(j),frech(j)
+        fcoln(j) = nzero_idsurf(j-cnt1-jstep_tmpb)
+        frech(j) = nzerosurf(j-cnt1-jstep_tmpb)
 if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
 cnt = cnt+1
 tmp1 = frech(j)
@@ -1008,6 +1076,7 @@ endif
    IF(dobs(istep).GT.0.0.AND.dmod(istep).GT.0.0)THEN
       jstep=jup
 if(vpvs==1) then
+cnt1 = cnt1+cnt
 jstep=jstep+cnt
 cnfe(istep)=cnfe(istep)+cnt
 endif
@@ -1021,11 +1090,13 @@ ENDIF
 enddo
 CLOSE(34)
 CLOSE(35)
-CLOSE(36)
+!CLOSE(36)
+!print*,cnfe(1:50)
 
 !mean = sum(dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))/ntrsurf
 !std_surf = sqrt(sum((dobs(istep-ntrsurf:istep-1)-dmod(istep-ntrsurf:istep-1))**2)/ntrsurf-mean**2)
 !write(*,'(a,f8.1,f8.2)'),'mean,std_devs and rms:', 1000*mean, 1000*std_surf
+deallocate(nzerosurf,nzero_idsurf,nrowsurf)
 jstep_tmps = jstep - jstep_tmpb
 endif ! for data type (surfjoint==1 or 2)
 
@@ -1042,7 +1113,7 @@ write(6,*)'data for body wave & surface wave', ntr-ntrsurf, ntrsurf
 !----------------------------------------------------------------
 
 ntr=istep-1
-!print*,'traces number',ntr
+print*,'traces number',ntr
 !
 ! Rearrange Frechet derivatives to separate out source parameter
 ! classes only if sources are inverted for.
@@ -1070,11 +1141,98 @@ IF(rmtr.EQ.1.AND.kstep.GT.0)THEN
       IF(istel(i).GT.0)dmod(i)=dmod(i)-mtmean(istel(i))
    ENDDO
 ENDIF
+
+! reweigth different data: body vs surface 
+! Hongjian Fang @ USTC
+
+allocate(dataweight(ntr),stat=checkstat)
+if(checkstat>0) stop 'error allocating dataweight'
+allocate(dtrav(ntr+9*npi),stat=checkstat)
+if(checkstat>0) stop 'error allocating dtrav'
+
+DO i=1,ntr
+   dtrav(i)=(dmod(i)-dobs(i))
+ENDDO
+print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
+! downweight data with large residual
+dataweight = 1.0
+if(surfjoint==0 .or.surfjoint==2) then
+mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+DO i=1,ntr-ntrsurf
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+dmod(i) = dmod(i)*dataweight(i)
+dobs(i) = dobs(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves:', 1000*mean, 1000*std_surf
+endif
+
+if(surfjoint==1) then
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+!print*,mean,std_surf
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+dmod(i) = dmod(i)*dataweight(i)
+dobs(i) = dobs(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+endif
+
+
+if(surfjoint==2) then
+surfweight = sqrt(surfweight/(1.0-surfweight))
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+DO i=ntr-ntrsurf+1,ntr
+if (abs(dtrav(i))>threshold*std_surf) then
+dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
+sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+else  
+dataweight(i) = sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+endif
+dtrav(i)=dtrav(i)*dataweight(i)
+ENDDO
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+DO i=ntr-ntrsurf+1,ntr
+!dtrav(i)=dtrav(i)*dataweight(i)
+dmod(i) = dmod(i)*dataweight(i)
+dobs(i) = dobs(i)*dataweight(i)
+ENDDO
+endif
+
+jstep = 0
+do m = 1,ntr
+  do j = cnfe(m-1)+1,cnfe(m)
+    jstep = jstep + 1
+    frech(jstep) = frech(jstep)*dataweight(m)
+  enddo
+enddo
+deallocate(dataweight,dtrav)
+
+
 !
 ! Now construct the transpose of the Frechet matrix
 !
 !print*,nnfd,npi,ntr
-ALLOCATE(tfrech(nnfd),tfcoln(nnfd),tcnfe(0:npi),stpv(ntr))
+if (inversionScheme == 1) then
+! it seems something wrong with the allocating for transpose G, it takes a long
+! time to finish this part, pay attention when using subspace to invert 
+! not a problem if using lsmr, for now
+ALLOCATE(tfrech(nnfd),tfcoln(nnfd),tcnfe(0:npi),stpv(ntr),stat=checkstat)
+if(checkstat>0) stop 'error allocating transpose G'
 stpv=1
 jstep=0
 tcnfe(0)=0
@@ -1093,6 +1251,7 @@ DO i=1,npi
    tcnfe(i)=jstep
 ENDDO
 DEALLOCATE(stpv)
+print*,'finished reading G and transpose G'
 !print*,'nozeros in transpose',jstep
 !print*,tfrech(jstep-5:jstep+5)
 !print*,tfrech(nnfd-20:nnfd)
@@ -1101,7 +1260,6 @@ DEALLOCATE(stpv)
 ! require for the subspace inversion scheme. Call a
 ! routine for performing the inversion
 !
-if (inversionScheme == 1) then
 CALL subspace
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
@@ -1119,8 +1277,6 @@ allocate(col(nnfd+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating rw'
 allocate(dtrav(ntr+9*npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating dtrav'
-allocate(dataweight(ntr+9*npi),stat=checkstat)
-if(checkstat>0) stop 'error allocating dataweight'
 allocate(norm(npi),stat=checkstat)
 if(checkstat>0) stop 'error allocating norm'
 allocate(norm_dwsb(npi),norm_dwss(npi),stat=checkstat)
@@ -1147,71 +1303,41 @@ IF(nvpi.GT.0)THEN
     DO k=1,nvnp(idvg(i),idvt(i))
       DO l=1,nvnt(idvg(i),idvt(i))
         DO m=1,nvnr(idvg(i),idvt(i))
-          is2=is2+1
-          IF(m.NE.1.AND.m.NE.nvnr(idvg(i),idvt(i)))THEN
-            is1=is2-1
-            is3=is2+1
+          is2 = (i-1)*nnode+(k-1)*nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i)) &
+                           +(l-1)*nvnr(idvg(i),idvt(i))+m
+          IF(m==1.or.m==nvnr(idvg(i),idvt(i)).or.l==1.or.l==nvnt(idvg(i),idvt(i)) &
+                .or.k==1.or.k==nvnp(idvg(i),idvt(i)))THEN
+            col(jstep+1) = is2
+            rw(jstep+1) = 2*etav
+            iw(1+jstep+1) = istep
+            istep = istep+1
+            jstep = jstep+1
+            else
             iw(1+jstep+1) = istep
             iw(1+jstep+2) = istep
             iw(1+jstep+3) = istep
-            rw(jstep+1) = 1.0*etav
-            rw(jstep+2) = -2.0*etav
-            rw(jstep+3) = 1.0*etav
-            col(jstep+1) = is1 
-            col(jstep+2) = is2
-            col(jstep+3) = is3
-            istep = istep + 1
-            jstep = jstep + 3
-          else
-            rw(jstep+1) = 5*etav
+            iw(1+jstep+4) = istep
+            iw(1+jstep+5) = istep
+            iw(1+jstep+6) = istep
+            iw(1+jstep+7) = istep
+            rw(jstep+1) = (4.0+2.0/depthsm)*etav
+            rw(jstep+2) = -1.0*etav/depthsm
+            rw(jstep+3) = -1.0*etav/depthsm
+            rw(jstep+4) = -1.0*etav
+            rw(jstep+5) = -1.0*etav
+            rw(jstep+6) = -1.0*etav
+            rw(jstep+7) = -1.0*etav
             col(jstep+1) = is2
-            iw(1+jstep+1) = istep
-            jstep = jstep+1
+            col(jstep+2) = is2-1 
+            col(jstep+3) = is2+1
+            col(jstep+4) = is2-nvnr(idvg(i),idvt(i))
+            col(jstep+5) = is2+nvnr(idvg(i),idvt(i))
+            col(jstep+6) = is2-nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
+            col(jstep+7) = is2+nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
             istep = istep+1
-          ENDIF
-          IF(l.NE.1.AND.l.NE.nvnt(idvg(i),idvt(i)))THEN
-            is1=is2-nvnr(idvg(i),idvt(i))
-            is3=is2+nvnr(idvg(i),idvt(i))
-            iw(1+jstep+1) = istep
-            iw(1+jstep+2) = istep
-            iw(1+jstep+3) = istep
-            rw(jstep+1) = 1.0*etav
-            rw(jstep+2) = -2.0*etav
-            rw(jstep+3) = 1.0*etav
-            col(jstep+1) = is1 
-            col(jstep+2) = is2
-            col(jstep+3) = is3
-            istep = istep + 1
-            jstep = jstep + 3
-          else
-            rw(jstep+1) = 5*etav
-            col(jstep+1) = is2
-            iw(1+jstep+1) = istep
-            jstep = jstep+1
-            istep = istep+1
-          ENDIF
-          IF(k.NE.1.AND.k.NE.nvnp(idvg(i),idvt(i)))THEN
-            is1=is2-nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
-            is3=is2+nvnr(idvg(i),idvt(i))*nvnt(idvg(i),idvt(i))
-            iw(1+jstep+1) = istep
-            iw(1+jstep+2) = istep
-            iw(1+jstep+3) = istep
-            rw(jstep+1) = 1.0*etav
-            rw(jstep+2) = -2.0*etav
-            rw(jstep+3) = 1.0*etav
-            col(jstep+1) = is1 
-            col(jstep+2) = is2
-            col(jstep+3) = is3
-            istep = istep + 1
-            jstep = jstep + 3
-          else
-            rw(jstep+1) = 5*etav
-            col(jstep+1) = is2
-            iw(1+jstep+1) = istep
-            jstep = jstep+1
-            istep = istep+1
-          ENDIF
-        ENDDO
+            jstep = jstep+7
+            endif
+         ENDDO
       ENDDO
     ENDDO
   ENDDO
@@ -1223,48 +1349,31 @@ IF(nipi.GT.0)THEN
   DO i=1,nigi
     DO j=1,ninp
       DO k=1,nint
-        is2=is2+1
-        IF(k.NE.1.AND.k.NE.nint)THEN
-          is1=is2-1
-          is3=is2+1
-          iw(1+jstep+1) = istep
-          iw(1+jstep+2) = istep
-          iw(1+jstep+3) = istep
-          rw(jstep+1) = 1.0*etai
-          rw(jstep+2) = -2.0*etai
-          rw(jstep+3) = 1.0*etai
-          col(jstep+1) = is1 
-          col(jstep+2) = is2
-          col(jstep+3) = is3
-          istep = istep + 1
-          jstep = jstep + 3
-        else
-          rw(jstep+1) = 5*etai
+        is2=(i-1)*ninp*nint+(j-1)*nint+k
+        IF(k==1.or.k==nint)THEN
+          rw(jstep+1) = 2*etai
           col(jstep+1) = is2
           iw(1+jstep+1) = istep
           jstep = jstep+1
           istep = istep+1
-        ENDIF
-        IF(j.NE.1.AND.j.NE.ninp)THEN
-          is1=is2-nint
-          is3=is2+nint
+        else
           iw(1+jstep+1) = istep
           iw(1+jstep+2) = istep
           iw(1+jstep+3) = istep
-          rw(jstep+1) = 1.0*etai
-          rw(jstep+2) = -2.0*etai
-          rw(jstep+3) = 1.0*etai
-          col(jstep+1) = is1 
-          col(jstep+2) = is2
-          col(jstep+3) = is3
+          iw(1+jstep+4) = istep
+          iw(1+jstep+5) = istep
+          rw(jstep+1) = 4.0*etai
+          rw(jstep+2) = -1.0*etai
+          rw(jstep+3) = -1.0*etai
+          rw(jstep+4) = -1.0*etai
+          rw(jstep+5) = -1.0*etai
+          col(jstep+1) = is2 
+          col(jstep+2) = is2-1
+          col(jstep+3) = is2+1
+          col(jstep+4) = is2-nint
+          col(jstep+5) = is2+nint
           istep = istep + 1
-          jstep = jstep + 3
-        else
-          rw(jstep+1) = 5*etai
-          col(jstep+1) = is2
-          iw(1+jstep+1) = istep
-          jstep = jstep+1
-          istep = istep+1
+          jstep = jstep + 5
         ENDIF
       ENDDO
     ENDDO
@@ -1275,7 +1384,7 @@ ENDIF
 if (nspi>0) then
   do i=1,nspi
     iw(1+jstep+i) = istep
-    rw(jstep+i) = 3.0*epss1
+    rw(jstep+i) = 1.0*epss1
     col(jstep+i) = nvpi+nipi+i
     istep = istep+1
   enddo
@@ -1301,72 +1410,10 @@ do i = 1,jstep
   iw(1+jstep+i) = col(i)
 enddo
 
-!DO i=1,ntr
-!   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
-!ENDDO
 DO i=1,ntr
-   dtrav(i)=(dmod(i)-dobs(i))
-ENDDO
-print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
-! downweight data with large residual
-dataweight = 1.0
-if(surfjoint==0 .or.surfjoint==2) then
-mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
-std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-DO i=1,ntr-ntrsurf
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
-std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves:', 1000*mean, 1000*std_surf
-endif
-
-if(surfjoint==1) then
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-!print*,mean,std_surf
-DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
-endif
-
-
-if(surfjoint==2) then
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
-sqrt(real(ntr-ntrsurf)/ntrsurf)*surfweight
-else  
-dataweight(i) = surfweight*sqrt(real(ntr-ntrsurf)/ntrsurf)
-endif
-!dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
-DO i=ntr-ntrsurf+1,ntr
-dtrav(i)=dtrav(i)*dataweight(i)
-ENDDO
-endif
-
-DO i=1,ntr
-   dtrav(i)=dtrav(i)/cd(i)
+   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
 ENDDO
 
-do i = 1,jstep
-rw(i) = rw(i)*dataweight(iw(1+i))
-enddo
 do i=ntr+1,m
   dtrav(i)=0.
 enddo
@@ -1388,7 +1435,7 @@ do i=1,jstep
 enddo
 
 do i=1,npi
-  norm(i) = sqrt(norm(i)/m)
+  norm(i) = sqrt(norm(i)/m)+1.e-5
 enddo
 
 ! normilize each column to use a single damping
@@ -1409,27 +1456,28 @@ enddo
     acond = 0.0
     arnorm = 0.0
     xnorm = 0.0
-    localSize = l/4
+    localSize = 100 
 
 
 
         nout = 63
         write (itnum,'(I0)') invstep
         open(nout,file='lsmrout'//trim(itnum)//'.txt')
-print*,'-----------------------------------------------------'
+!print*,'-----------------------------------------------------'
 print*,'iteration:',invstep
 !print*,'min. and max. dws',minval(norm_dws),maxval(norm_dws)
 print*,'min. and max. dws',minval(norm),maxval(norm)
     call LSMR(m, l, leniw, lenrw,iw,rw,dtrav, damp,&
       atol, btol, conlim, itnlim, localSize, nout,&
       dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
+print*,'lsmr finished with condition number: ',acond
     dm = -dm
     do i = 1,npi
       dm(i) = dm(i)/norm(i)
     enddo
     !if(istop==3) print*,'istop = 3, large condition number'
     deallocate(iw,col)
-    deallocate(rw,dtrav,norm,dataweight)
+    deallocate(rw,dtrav,norm)
     close(nout)
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
@@ -1444,7 +1492,7 @@ write(*,*) 'min. and max. srcs location variation: lon', 0.009*minval(dm(nvpi+ni
                 0.009*maxval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi))
 write(*,*) 'min. and max. srcs location variation: stp', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
                 maxval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi))
-print*,'-----------------------------------------------------'
+!print*,'-----------------------------------------------------'
 endif
 
 endif !subspace or lsmr
@@ -1500,6 +1548,7 @@ IF(pvi.EQ.1)THEN
                      if(istep<=nnode) then
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
                      else
+                     if (abs(dm(istep))>0.1) dm(istep) = dm(istep)/abs(dm(istep))*0.1
                      veln(m,l,k,j,i)=mc(istep-nnode)/mc(istep)+dm(istep)
                      !veln(m,l,k,j,i) = mc(istep-nnode)/veln(m,l,k,j,i)
                      veln(m,l,k,j,i) = veln(m,l,k,j,i-1)/veln(m,l,k,j,i)
@@ -1781,7 +1830,7 @@ ENDIF
 ! Final deallocation
 !
 DEALLOCATE(frech,fcoln,cnfe)
-DEALLOCATE(tfrech,tfcoln,tcnfe)
+if(inversionScheme==1) DEALLOCATE(tfrech,tfcoln,tcnfe)
 DEALLOCATE(dobs,dmod,cd)
 DEALLOCATE(mo,mc,cm,ecmi,dm)
 !DEALLOCATE(paths,patht)
@@ -1800,6 +1849,18 @@ IF(nvgi.GT.0)DEALLOCATE(idvg,idvt)
 IF(nigi.GT.0)DEALLOCATE(idig)
 IF(nspi.GT.0)DEALLOCATE(ids)
 IF(ntels.GT.0)DEALLOCATE(istel,mtmean)
+
+contains
+!netcdf begin here...hongjian@ustc 2017/03/03
+subroutine check(status)
+    integer, intent ( in) :: status
+    
+    if(status /= nf90_noerr) then 
+      print *, trim(nf90_strerror(status))
+      stop "Stopped"
+    end if
+end subroutine check  
+
 END PROGRAM invert
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

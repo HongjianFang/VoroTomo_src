@@ -11,6 +11,8 @@
         integer invstep
         integer syn
         real noisethresh
+        integer sgs,sgdl
+         real sparsefrac
 
 !----------------------------------------------------------
   write(unit=*,fmt='(a30)',advance='no')' initializing velocity grids '
@@ -86,6 +88,9 @@
 	endif
         read(64,*)syn
         read(64,*)noisethresh
+!       hidden bugs, read some parameters that control the forward oporator from outside 
+        read(64,*) sgs,sgdl
+        read(64,*) sparsefrac
 	close(64)
         kmax=kmaxRc+kmaxRg+kmaxLc+kmaxLg
 
@@ -194,7 +199,8 @@
       enddo
       enddo
 
-      do m=1,vgrid(1,1)%nr-1
+        depz(1) = 0
+      do m=2,vgrid(1,1)%nr-1
       depz(m) = earthr-vgrid(1,1)%r(vgrid(1,1)%nr-m)
       enddo
       nz = vgrid(1,1)%nr
@@ -219,9 +225,9 @@
       depz(nz+1:nz-ngrid2sep:-1)=earthr-vgrid(2,1)%r(1:ngrid2sep+2)
     numgrid2 = vgrid(2,1)%nnode
     numgrid1 = vgrid(1,1)%nnode
-        print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
-    print*, ngrid1sep+2,nz+1-ngrid2sep
-    print*,vel(5,5,1:nz+2)
+        !print*,numgrid1,numgrid2,ngrid1sep,ngrid2sep,nz1,nz2
+    !print*, ngrid1sep+2,nz+1-ngrid2sep
+    !print*,vel(5,5,1:nz+2)
     do m=1,n_vtypes
          do j=1,vgrid(1,m)%nlat
             do k=1,vgrid(1,m)%nlong
@@ -246,14 +252,16 @@
 ! frechet direvitives for surface wave data
 !print*,depz
 !print*,nx,ny,nz,goxd,gozd,dvxd,dvzd,minthk
-        open(34,file='frechetsurf.dat')
+!print*,vel(5,5,1:nz)
+        !open(34,file='frechetsurf.dat')
         open(35,file='ttimessurf.dat')
         call CalSurfG(nx,ny,nz,nz1,nz2,vel,dsurf, &
               goxd,gozd,dvxd,dvzd,kmaxRc,kmaxRg,kmaxLc,kmaxLg, &
               tRc,tRg,tLc,tLg,wavetype,igrt,periods,depz,minthk, &
               scxf,sczf,rcxf,rczf,nrc1,nsrcsurf1,kmax,nsrcsurf,nrc, &
-              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2)
-         close(34)
+              ngrid1sep,ngrid2sep,n_interfaces,numgrid1,numgrid2,dall,& 
+              sgs,sgdl,sparsefrac)
+         !close(34)
          close(35)
          print*,'surface wave frechet direvitives done'
 

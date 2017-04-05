@@ -36,6 +36,14 @@ program fm3d
   real                               :: evlat,evlon,ndlat,ndlon,deltas,cazim,bazim,azima
   integer                            :: myid,nproc
 
+! netcdf variables, hongjian fang@ustc 2017/03/02
+  real(kind=dp),dimension(:),allocatable :: nonzero_value
+  integer,dimension(:),allocatable :: nonzero_id, non_row
+  integer :: nonz
+  real(kind=dp),parameter :: sparsefrac=0.01
+  integer :: ncount
+  
+
 
 !  logical,dimension(:),allocatable   :: logarr
 
@@ -790,13 +798,13 @@ global_source_counter = 0
 ! fast marching for each source. It is called no_pp_mode because in this mode
 ! it is not possible to do late reflection, since this requires the time 
 ! fields from different sources at the same time
-
+ncount = 0
 if (no_pp_mode) then
 
    call initialize_inversion(do_frechet_derivatives)
 
    open(11,file='arrivals.dat')
-   open(21,file='frechet.dat')
+   !open(21,file='frechet.dat')
    if (save_rays_mode) open(31,file='rays.dat')
    if (display_mode) open(41,file='raypos')
    if (display_mode) open(42,file='raytype')
@@ -805,6 +813,14 @@ if (no_pp_mode) then
 endif
 
 
+! netcdf variables, hongjian fang@ustc 2017/03/02
+nonz = sparsefrac*vgrid(1,1)%nr*vgrid(1,1)%nlat*vgrid(1,1)%nlong*n_receivers
+allocate(non_row(n_receivers))
+allocate(nonzero_value(nonz))
+allocate(nonzero_id(nonz))
+non_row = 0
+nonzero_value = 0.
+nonzero_id = 0
 
 do ns=1,n_sources_ppinc
 
@@ -1083,6 +1099,7 @@ if (file_mode) then
 endif
 
 
+
 if (no_pp_mode) then
 
    print *,'starting the ray tracing for source',s%id
@@ -1155,7 +1172,7 @@ if (no_pp_mode) then
 
                endif
 
-               call write_frechet_derivatives(n,m)
+               call write_frechet_derivatives(n,m,non_row,nonzero_id,nonzero_value,ncount)
 
             endif
 
@@ -1220,7 +1237,7 @@ end do ! loop over sources
 if (no_pp_mode) then
 
    close(11)
-   close(21)
+   !close(21)
    if (save_rays_mode) close(31)
    if (display_mode) close(41)
    if (display_mode) close(42)
@@ -1242,7 +1259,7 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
    call initialize_inversion(do_frechet_derivatives)
 
    open(11,file='arrivals.dat')
-   open(21,file='frechet.dat')
+   !open(21,file='frechet.dat')
    if (save_rays_mode) open(31,file='rays.dat')
    if (display_mode) open(41,file='raypos')
    if (display_mode) open(42,file='raytype')
@@ -1327,7 +1344,7 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
 
                endif
 
-               call write_frechet_derivatives(n,m)
+               call write_frechet_derivatives(n,m,non_row,nonzero_id,nonzero_value,ncount)
 
             endif
 
@@ -1358,10 +1375,11 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
    end do    !loop over receivers
 
    close(11)
-   close(21)
+   !close(21)
    if (save_rays_mode) close(31)
    if (display_mode) close(41)
    if (display_mode) close(42)
+
 
    call system_clock(t5,count_rate,count_max)
 
@@ -1376,6 +1394,11 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
 
 endif  ! n_receivers > 0 and not in no_pp_mode
 
+! netcdf variables, hongjian fang@ustc 2017/03/02
+! call netcdf to save non_row,nonzero_id/value
+! bug hidden here when there are more than one ray for some receivers
+   call savetonetcdf(n_receivers,ncount,non_row,nonzero_id,nonzero_value)
+   deallocate(non_row,nonzero_id,nonzero_value)
 
 !-----------------------------------------------------------------------------------------------------------
 
