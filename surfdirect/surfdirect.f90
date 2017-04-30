@@ -154,8 +154,9 @@
         call delsph(sta1_lat,sta1_lon,sta2_lat,sta2_lon,dist)
         !print *,sta1_lat,sta1_lon,sta2_lat,sta2_lon,dist
         obst(dall)=dist/velvalue
-        noises(dall) = dist*noiselevel/velvalue
-        if(noises(dall)<noisethresh) noises(dall) = noisethresh
+        !notice hidden bug here, hongjian Fang @ USTC 2017.04.30
+        noises(dall) = dist*noiselevel/velvalue*real(period)/max(kmaxRc,kmaxRg,kmaxLc,kmaxLg)
+        !if(noises(dall)<noisethresh) noises(dall) = noisethresh
         nrc1(istep,knum)=istep1
         endif
         else
@@ -172,7 +173,13 @@
           open(88,file='otimessurf.dat')
           write(88,'(i6)') dall
           do i=1,dall
+!       noises now is quality control
+           noises(i) = minval(noises)/noises(i)
+           if (noises(i)>noisethresh) then
             write(88,'(f8.4,4x,f7.2)') obst(i),noises(i)
+           else
+            write(88,'(f8.4,4x,f7.2)') obst(i),noisethresh
+           endif
           enddo
           close(88)
         endif
