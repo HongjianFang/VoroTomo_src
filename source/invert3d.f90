@@ -143,7 +143,7 @@ integer checkstat
 integer inversionScheme
 integer is1,is2,is3
 character*4 itnum
-real(kind=i5) threshold
+real(kind=i5) thresholdb,thresholds
 real(kind=i5) surfweight
 integer nnode
 integer vpvs
@@ -155,6 +155,10 @@ real(kind=i5),parameter:: depthsm=3.0
 character (len=40) cdum
 !integer flex,choosedsrc
 real(kind=i5) radall,latall,lonall
+integer columnnorm
+
+! define bounds for source locations
+real(kind=i5) boundsr,boundslat,boundslon
 
 !netcdf begin here...hongjian@ustc 2017/03/03
 integer :: ncid,nzeroid,nrowid,nonid
@@ -270,9 +274,11 @@ READ(10,*)eta
 READ(10,*)earthr
 read(10,*)surfjoint
 read(10,*)inversionScheme
-read(10,*)threshold
+read(10,*)thresholdb,thresholds
 read(10,*)surfweight
 read(10,*)vpvs
+read(10,*)boundsr,boundslat,boundslon
+read(10,*)columnnorm
 !read(10,*)flex
 1 FORMAT(a26)
 CLOSE(10)
@@ -1159,34 +1165,38 @@ dataweight = 1.0
 if(surfjoint==0 .or.surfjoint==2) then
 mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
 std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves before weighting:', 1000*mean, 1000*std_surf
 DO i=1,ntr-ntrsurf
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
+!if (abs(dtrav(i))>threshold*std_surf) then
+!dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+!endif
+dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholdb))*cd(i)
 dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
 dobs(i) = dobs(i)*dataweight(i)
 ENDDO
 mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
 std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves after weighting:', 1000*mean, 1000*std_surf
 endif
 
 if(surfjoint==1) then
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
 !print*,mean,std_surf
 DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
-endif
+!if (abs(dtrav(i))>threshold*std_surf) then
+!dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
+!endif
+dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)
 dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
 dobs(i) = dobs(i)*dataweight(i)
 ENDDO
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
 endif
 
 
@@ -1194,18 +1204,20 @@ if(surfjoint==2) then
 surfweight = sqrt(surfweight/(1.0-surfweight))
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
 DO i=ntr-ntrsurf+1,ntr
-if (abs(dtrav(i))>threshold*std_surf) then
-dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
-sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
-else  
-dataweight(i) = sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
-endif
+!if (abs(dtrav(i))>threshold*std_surf) then
+!dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
+!sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+!else  
+!dataweight(i) = sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+!endif
+dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)*sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
 dtrav(i)=dtrav(i)*dataweight(i)
 ENDDO
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
 DO i=ntr-ntrsurf+1,ntr
 !dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
@@ -1288,7 +1300,7 @@ do m = 1,ntr
   do j = cnfe(m-1)+1,cnfe(m)
     jstep = jstep + 1
     iw(1+jstep) = m
-    rw(jstep) = frech(jstep)/cd(m)
+    rw(jstep) = frech(jstep)
     col(jstep) = fcoln(jstep)
   enddo
 enddo
@@ -1411,7 +1423,7 @@ do i = 1,jstep
 enddo
 
 DO i=1,ntr
-   dtrav(i)=(dmod(i)-dobs(i))/cd(i)
+   dtrav(i)=(dmod(i)-dobs(i))
 ENDDO
 
 do i=ntr+1,m
@@ -1439,9 +1451,11 @@ do i=1,npi
 enddo
 
 ! normilize each column to use a single damping
+if(columnnorm==1) then
 do i = 1,jstep
   rw(i) = rw(i)/norm(iw(1+jstep+i))
 enddo
+endif
 
 
     leniw = 2*jstep+1
@@ -1472,9 +1486,11 @@ print*,'min. and max. dws',minval(norm),maxval(norm)
       dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
 print*,'lsmr finished with condition number: ',acond
     dm = -dm
+if(columnnorm==1) then
     do i = 1,npi
       dm(i) = dm(i)/norm(i)
     enddo
+endif
     !if(istop==3) print*,'istop = 3, large condition number'
     deallocate(iw,col)
     deallocate(rw,dtrav,norm)
@@ -1702,7 +1718,7 @@ IF(psi.EQ.1)THEN
     endif
    DO j=1,nspi
       istep=istep+1
-      if (abs(dm(istep))>1.0) dm(istep) = dm(istep)/abs(dm(istep))*1.0
+      if (abs(dm(istep))>boundsr) dm(istep) = dm(istep)/abs(dm(istep))*boundsr
       srad(ids(j))=mc(istep)-dm(istep)
    if(pvi>0) then
       if (srad(ids(j)) < pgt) then
@@ -1724,7 +1740,7 @@ IF(psi.EQ.1)THEN
       istep=istep+1
 ! dis/R*180/pi  rad-->degree
       dm(istep)=dm(istep)*180.0/(pi*(earthr-srad(ids(j))))
-      if (abs(dm(istep))>0.05) dm(istep) = dm(istep)/abs(dm(istep))*0.05
+      if (abs(dm(istep))>boundslat) dm(istep) = dm(istep)/abs(dm(istep))*boundslat
       slat(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
       if (slat(ids(j)) > pgt) then
@@ -1748,7 +1764,7 @@ IF(psi.EQ.1)THEN
       ! bug here, seems very important bug 180*pi-->pi/180
       ! degree-->rad for cos
       dm(istep)=dm(istep)/cos(slat(ids(j))*pi/180)
-      if (abs(dm(istep))>0.05) dm(istep) = dm(istep)/abs(dm(istep))*0.05
+      if (abs(dm(istep))>boundslon) dm(istep) = dm(istep)/abs(dm(istep))*boundslon
       slon(ids(j))=mc(istep)+dm(istep)
    if(pvi>0) then
       if (slon(ids(j)) > pgt) then
