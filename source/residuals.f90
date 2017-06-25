@@ -12,7 +12,7 @@ INTEGER :: i,id1,id2,id3,id4,nt,isum,telp,ne,ntels,iswtel,id2o
 INTEGER :: rmftr
 INTEGER, DIMENSION(:), ALLOCATABLE :: tsid
 INTEGER, PARAMETER :: i10=SELECTED_REAL_KIND(10,100)
-REAL(KIND=i10) :: eot,trms,tvar,rd1,rd2,rd3,chis
+REAL(KIND=i10) :: eot,trms,tvar,tmean,rd1,rd2,rd3,chis
 REAL(KIND=i10), DIMENSION(100) :: paths,patht
 REAL(KIND=i10), DIMENSION(:), ALLOCATABLE :: mtmean
 CHARACTER (LEN=30) :: mtimes,otimes,scfile,rtfile,invfile
@@ -118,6 +118,7 @@ IF(telp.EQ.1)THEN
 ENDIF
 READ(10,*)nt
 tvar=0.0
+tmean=0.0
 isum=0
 iswtel=0
 chis=0.0
@@ -139,7 +140,8 @@ DO i=1,nt
    IF(rd1.GT.0.0.AND.rd2.GT.0.0.OR.iswtel.EQ.1)THEN
       isum=isum+1
       tvar=tvar+(rd1-rd2)**2
-      chis=chis+((rd1-rd2)/eot)**2
+      tmean=tmean+(rd1-rd2)
+      chis=chis+((rd1-rd2)*eot)**2
    ENDIF
    iswtel=0
 ENDDO
@@ -149,10 +151,12 @@ CLOSE(20)
 ! Compute variance and RMS residual
 !
 nt=isum
-trms=1000.0*SQRT(tvar/REAL(nt))
+!trms=1000.0*SQRT(tvar/REAL(nt))
+tmean = tmean/real(nt)
+trms=SQRT(tvar/REAL(nt)-tmean**2)
 tvar=tvar/REAL(nt-1)
 chis=chis/REAL(nt)
-WRITE(6,'(f10.2,2X,f10.5,2X,f10.5)')trms,tvar,chis
+WRITE(6,'(f10.2,2X,f10.2,2X,f10.5,2X,f10.5)')tmean,trms,tvar,chis
 IF(telp.EQ.1)THEN
    CLOSE(40)
    DEALLOCATE(mtmean)

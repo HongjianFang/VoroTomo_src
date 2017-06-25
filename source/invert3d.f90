@@ -145,6 +145,7 @@ integer is1,is2,is3
 character*4 itnum
 real(kind=i5) thresholdb,thresholds
 real(kind=i5) surfweight
+real(kind=i5) stdratio
 integer nnode
 integer vpvs
 integer cnt,tmp
@@ -156,6 +157,7 @@ character (len=40) cdum
 !integer flex,choosedsrc
 real(kind=i5) radall,latall,lonall
 integer columnnorm
+!real(kind=i5) dampratio
 
 ! define bounds for source locations
 real(kind=i5) boundsr,boundslat,boundslon
@@ -275,10 +277,11 @@ READ(10,*)earthr
 read(10,*)surfjoint
 read(10,*)inversionScheme
 read(10,*)thresholdb,thresholds
-read(10,*)surfweight
+read(10,*)surfweight,stdratio
 read(10,*)vpvs
 read(10,*)boundsr,boundslat,boundslon
 read(10,*)columnnorm
+!read(10,*)dampratio
 !read(10,*)flex
 1 FORMAT(a26)
 CLOSE(10)
@@ -1041,6 +1044,7 @@ IF(ntels.GT.0)CLOSE(40)
 deallocate(nzero,nzero_id,nrowarr)
 jstep_tmpb = jstep
 endif ! for data type (surfjoint==0 or 2)
+!print*,istep,jstep
 ! hongjian fang @ethz... adding surface wave data
 !----------------------------------------------------------------
 !print*,istep,jstep
@@ -1159,52 +1163,53 @@ if(checkstat>0) stop 'error allocating dtrav'
 DO i=1,ntr
    dtrav(i)=(dmod(i)-dobs(i))
 ENDDO
-print*,'weighted rms',sum(dtrav(1:ntr)**2)/ntr
 ! downweight data with large residual
 dataweight = 1.0
 if(surfjoint==0 .or.surfjoint==2) then
 mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
 std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves before weighting:', 1000*mean, 1000*std_surf
+!print*,mean,std_surf,ntr,ntrsurf
+!stop
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for body waves before weighting:', 1000*mean, 1000*std_surf
 DO i=1,ntr-ntrsurf
 !if (abs(dtrav(i))>threshold*std_surf) then
 !dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
 !endif
-dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholdb))*cd(i)
+dataweight(i) = 0.01+1.0/(1+0.05*exp(dtrav(i)**2*thresholdb))*cd(i)
 dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
 dobs(i) = dobs(i)*dataweight(i)
 ENDDO
 mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
 std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for body waves after weighting:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for body waves after weighting:', 1000*mean, 1000*std_surf
 endif
 
 if(surfjoint==1) then
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
 !print*,mean,std_surf
 DO i=ntr-ntrsurf+1,ntr
 !if (abs(dtrav(i))>threshold*std_surf) then
 !dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))
 !endif
-dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)
+dataweight(i) = 0.01+1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)
 dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
 dobs(i) = dobs(i)*dataweight(i)
 ENDDO
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
 endif
 
 
-if(surfjoint==2) then
-surfweight = sqrt(surfweight/(1.0-surfweight))
+if(surfjoint==2 .and. pvi>0) then
+surfweight = sqrt(surfweight/(1.0-surfweight)*stdratio*real(ntr-ntrsurf)/ntrsurf)
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for surface waves before weighting:', 1000*mean, 1000*std_surf
 DO i=ntr-ntrsurf+1,ntr
 !if (abs(dtrav(i))>threshold*std_surf) then
 !dataweight(i) = exp(-(abs(dtrav(i))/(threshold*std_surf)-1))* &
@@ -1212,18 +1217,22 @@ DO i=ntr-ntrsurf+1,ntr
 !else  
 !dataweight(i) = sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
 !endif
-dataweight(i) = 1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)*sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
+dataweight(i) = 0.01+1.0/(1+0.05*exp(dtrav(i)**2*thresholds))*cd(i)*surfweight
 dtrav(i)=dtrav(i)*dataweight(i)
 ENDDO
-mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
-std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)/sqrt(real(ntr-ntrsurf)/ntrsurf*surfweight)
-write(*,'(a,f10.1,f10.1)'),'mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
+mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)/surfweight
+std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)/surfweight
+write(*,'(a,f10.1,f10.1)'),' mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
 DO i=ntr-ntrsurf+1,ntr
 !dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
 dobs(i) = dobs(i)*dataweight(i)
 ENDDO
 endif
+
+mean = sum(dtrav)/(ntr)
+std_surf = sqrt(sum((dtrav)**2)/ntr-mean**2)
+print*,'weighted rms',std_surf
 
 jstep = 0
 do m = 1,ntr
@@ -1232,7 +1241,7 @@ do m = 1,ntr
     frech(jstep) = frech(jstep)*dataweight(m)
   enddo
 enddo
-deallocate(dataweight,dtrav)
+deallocate(dtrav)
 
 
 !
@@ -1309,6 +1318,7 @@ jstep_tmp = jstep
 
 !aguement smooth matrix under the sensitivity matrix
 damp = epsilon
+!damp = std_surf*epsilon
 is2=0
 IF(nvpi.GT.0)THEN
   DO i=1,nvgi
@@ -1394,6 +1404,11 @@ ENDIF
 
 ! regularization for sources position and origin times
 if (nspi>0) then
+!  do i=1,jstep_tmpb
+!    if (col(i)>nvpi+nipi) then
+!        rw(i) = rw(i)/dampratio
+!    endif
+!  enddo
   do i=1,nspi
     iw(1+jstep+i) = istep
     rw(jstep+i) = 1.0*epss1
@@ -1423,7 +1438,7 @@ do i = 1,jstep
 enddo
 
 DO i=1,ntr
-   dtrav(i)=(dmod(i)-dobs(i))
+   dtrav(i)=1000*(dmod(i)-dobs(i))
 ENDDO
 
 do i=ntr+1,m
@@ -1461,16 +1476,16 @@ endif
     leniw = 2*jstep+1
     lenrw = jstep 
     dm = 0
-    atol = 1e-5
-    btol = 1e-5
-    conlim = 100
-    itnlim = 500
+    atol = 1e-3
+    btol = 1e-3
+    conlim = 200
+    itnlim = 800
     istop = 0
     anorm = 0.0
     acond = 0.0
     arnorm = 0.0
     xnorm = 0.0
-    localSize = 100 
+    localSize = 10 
 
 
 
@@ -1484,15 +1499,25 @@ print*,'min. and max. dws',minval(norm),maxval(norm)
     call LSMR(m, l, leniw, lenrw,iw,rw,dtrav, damp,&
       atol, btol, conlim, itnlim, localSize, nout,&
       dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
-print*,'lsmr finished with condition number: ',acond
-    dm = -dm
+print*,'damp is:',damp,' lsmr finished with condition number: ',acond
+    dm = -dm/1000
 if(columnnorm==1) then
     do i = 1,npi
       dm(i) = dm(i)/norm(i)
     enddo
+!    do j = 1,jstep
+!       rw(j) = rw(j)*norm(iw(1+jstep+j))
+!    enddo
 endif
+!    call aprod(1,m,l,dm,dtrav,leniw,lenrw,iw,rw)
+!        do i = 1,ntr-ntrsurf
+!        dtrav(i)=dtrav(i)/dataweight(i)
+!        enddo
+!        mean = sum(dtrav(1:ntr-ntrsurf))/(ntr-ntrsurf)
+!        std_surf = sqrt(sum((dtrav(1:ntr-ntrsurf))**2)/(ntr-ntrsurf)-mean**2)
+!        write(*,'(a,f10.1,f10.1)'),' mean,std_devs for body waves after lsmr :', 1000*mean, 1000*std_surf
     !if(istop==3) print*,'istop = 3, large condition number'
-    deallocate(iw,col)
+    deallocate(iw,col,dataweight)
     deallocate(rw,dtrav,norm)
     close(nout)
 if (pvi>0) then
@@ -1500,13 +1525,13 @@ write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
 write(*,*) 'min. and max. velocity variation', minval(dm(1:nvpi)),maxval(dm(1:nvpi))
 endif
 if(psi>0) then
-write(*,*) 'min. and max. srcs location variation: rad', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
+write(*,*) 'min. and max. srcs location variation: rad(km)', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
                 maxval(dm(nvpi+nipi+1:nvpi+nipi+nspi))
-write(*,*) 'min. and max. srcs location variation: lat', 0.009*minval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi)),&
-                0.009*maxval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi))
-write(*,*) 'min. and max. srcs location variation: lon', 0.009*minval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi)),& 
-                0.009*maxval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi))
-write(*,*) 'min. and max. srcs location variation: stp', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
+write(*,*) 'min. and max. srcs location variation: lat(km)', minval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi)),&
+                maxval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi))
+write(*,*) 'min. and max. srcs location variation: lon(km)', minval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi)),& 
+                maxval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi))
+write(*,*) 'min. and max. srcs location variation: stp(s)', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
                 maxval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi))
 !print*,'-----------------------------------------------------'
 endif
@@ -1556,12 +1581,18 @@ IF(pvi.EQ.1)THEN
                DO l=1,nvnt(j,i)
                   DO m=1,nvnr(j,i)
                      istep=istep+1
-                     if (abs(dm(istep))>0.3) dm(istep) = dm(istep)/abs(dm(istep))*0.3
-                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
                      velndwsb(m,l,k,j,i)=norm_dwsb(istep)
                      velndwss(m,l,k,j,i)=norm_dwss(istep)
+                     if(istep<=nnode) then
+                     if (abs(dm(istep))>0.4) dm(istep) = dm(istep)/abs(dm(istep))*0.4
+                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
+                     else
+                     if (abs(dm(istep))>0.2) dm(istep) = dm(istep)/abs(dm(istep))*0.2
+                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
+                     endif
                      if(vpvs==1) then
                      if(istep<=nnode) then
+                     if (abs(dm(istep))>0.4) dm(istep) = dm(istep)/abs(dm(istep))*0.4
                      veln(m,l,k,j,i)=mc(istep)+dm(istep)
                      else
                      if (abs(dm(istep))>0.1) dm(istep) = dm(istep)/abs(dm(istep))*0.1
@@ -1577,6 +1608,8 @@ IF(pvi.EQ.1)THEN
          !ENDIF
          enddo
          enddo
+        print*,'min and max Vp/Vs:',minval(mc(1:nnode)/mc(nnode+1:nvpi)),maxval(mc(1:nnode)/mc(nnode+1:nvpi))
+
 
   DO i=1,nvgt
      DO j=1,ni-1
@@ -1710,6 +1743,9 @@ IF(psi.EQ.1)THEN
       slon=slonr
       DEALLOCATE(sradr,slatr,slonr)
    ENDIF
+!   do j=1,4*nspi
+!   dm(istep+j)=dm(istep+j)/dampratio
+!   enddo
    if(pvi>0) then
       !pgt = earthr - (gor(1,1)+(nvnr(1,1)-3)*gnsr(1,1))
       !pgb = earthr - gor(1,1)-2*gnsr(1,1)
