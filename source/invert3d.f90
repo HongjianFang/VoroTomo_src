@@ -1009,6 +1009,7 @@ if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
 cnt = cnt+1
 tmp1 = frech(j)
 frech(j) = tmp1*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+!frech(j) = tmp1*mc(fcoln(j)-nnode)
 frech(jup+cnt) = tmp1*(mc(fcoln(j))/mc(fcoln(j)-nnode))
 fcoln(jup+cnt) = fcoln(j)-nnode
 endif
@@ -1079,6 +1080,7 @@ if(vpvs==1.and.fcoln(j)>nnode.and.fcoln(j)<=nvpi) then
 cnt = cnt+1
 tmp1 = frech(j)
 frech(j) = tmp1*(-mc(fcoln(j))**2/mc(fcoln(j)-nnode))
+!frech(j) = tmp1*mc(fcoln(j)-nnode)
 frech(jup+cnt) = tmp1*(mc(fcoln(j))/mc(fcoln(j)-nnode))
 fcoln(jup+cnt) = fcoln(j)-nnode
 endif
@@ -1322,6 +1324,8 @@ damp = epsilon
 is2=0
 IF(nvpi.GT.0)THEN
   DO i=1,nvgi
+!hidden bug, be careful with the following line with 2 more layers
+    if (mod(i,2)==0) etav = etav*3.0
     DO k=1,nvnp(idvg(i),idvt(i))
       DO l=1,nvnt(idvg(i),idvt(i))
         DO m=1,nvnr(idvg(i),idvt(i))
@@ -1462,7 +1466,7 @@ do i=1,jstep
 enddo
 
 do i=1,npi
-  norm(i) = sqrt(norm(i)/m)+1.e-5
+  norm(i) = sqrt(norm(i)/m)
 enddo
 
 ! normilize each column to use a single damping
@@ -1522,7 +1526,8 @@ endif
     close(nout)
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
-write(*,*) 'min. and max. velocity variation', minval(dm(1:nvpi)),maxval(dm(1:nvpi))
+write(*,*) 'min. and max. velocity variation P and S', minval(dm(1:nnode)),maxval(dm(1:nnode)), &
+                minval(dm(nnode+1:nvpi)),maxval(dm(nnode+1:nvpi))
 endif
 if(psi>0) then
 write(*,*) 'min. and max. srcs location variation: rad(km)', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
@@ -1583,13 +1588,6 @@ IF(pvi.EQ.1)THEN
                      istep=istep+1
                      velndwsb(m,l,k,j,i)=norm_dwsb(istep)
                      velndwss(m,l,k,j,i)=norm_dwss(istep)
-                     if(istep<=nnode) then
-                     if (abs(dm(istep))>0.4) dm(istep) = dm(istep)/abs(dm(istep))*0.4
-                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
-                     else
-                     if (abs(dm(istep))>0.2) dm(istep) = dm(istep)/abs(dm(istep))*0.2
-                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
-                     endif
                      if(vpvs==1) then
                      if(istep<=nnode) then
                      if (abs(dm(istep))>0.4) dm(istep) = dm(istep)/abs(dm(istep))*0.4
@@ -1599,6 +1597,14 @@ IF(pvi.EQ.1)THEN
                      veln(m,l,k,j,i)=mc(istep-nnode)/mc(istep)+dm(istep)
                      !veln(m,l,k,j,i) = mc(istep-nnode)/veln(m,l,k,j,i)
                      veln(m,l,k,j,i) = veln(m,l,k,j,i-1)/veln(m,l,k,j,i)
+                     endif
+                     else
+                     if(istep<=nnode) then
+                     if (abs(dm(istep))>0.4) dm(istep) = dm(istep)/abs(dm(istep))*0.4
+                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
+                     else
+                     if (abs(dm(istep))>0.2) dm(istep) = dm(istep)/abs(dm(istep))*0.2
+                     veln(m,l,k,j,i)=mc(istep)+dm(istep)
                      endif
                      endif
                      IF(veln(m,l,k,j,i).LT.mpv)veln(m,l,k,j,i)=mpv
