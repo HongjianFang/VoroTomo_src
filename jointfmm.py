@@ -5,6 +5,8 @@
 ########################################################################################
 #
 import os
+from shutil import copyfile
+import sys
 #
 # forward
 fmm='fm3d'
@@ -43,6 +45,7 @@ NI = int(lines[0].strip())
 BGITER = int(lines[1].strip())
 BINV = int(lines[2].strip())
 JOINT = int(lines[3].strip())
+velinv = 1
 ###############################
 ###############################
 #
@@ -54,9 +57,9 @@ JOINT = int(lines[3].strip())
 from datetime import datetime
 start_time = datetime.now()
 if BGITER == 0:
-    os.system('cp %s %s' % (ivg, cvg))
-    os.system('cp %s %s' % (iig, cig))
-    os.system('cp %s %s' % (isl, csl))
+    copyfile(ivg,cvg)
+    copyfile(iig,cig)
+    copyfile(isl,csl)
     ITER=1
     with open(itn, 'w') as fp:
         fp.write(str(ITER))
@@ -77,14 +80,13 @@ if BGITER == 0:
 #
 if BGITER==0 or (BGITER==1 and BINV==1 ):
   if(JOINT==0 or JOINT==2):
-    #os.system(fmm+' > '+diagnos)
     import para
-    os.system('cp %s %s' % (ttim, mtrav))
-    os.system('cp %s %s' % (ttim, rtrav))
+    copyfile(ttim,mtrav)
+    copyfile(ttim,rtrav)
     os.system(resid+'> '+resout)
   if(JOINT==1 or (JOINT==2 and velinv ==1)):
     os.system(surfdirect+' > '+diagnossurf)
-    os.system('cp %s %s' % (ttimessurf, mtravsurf))
+    copyfile(ttimessurf,mtravsurf)
 
 try:
     with open(itn,'r') as inviter:
@@ -98,8 +100,14 @@ except:
 while ITER<=NI:
     os.system(inv)
 
-    for line in ['interfaces.in', 'vgrids.in', 'sources.in']:
-        os.system('cp %s %s' % (line, line+'.'+str(ITER).zfill(3)))
+    runid = sys.argv[1]
+    iterdir = runid+'/iteration'+str(ITER).zfill(3)
+    if not os.path.exists(iterdir):
+    	os.makedirs(iterdir)
+    files = ['interfaces.in', 'vgrids.in', 'sources.in',\
+	      'mtimes.dat','mtimessurf.dat','invert3d.in','inviter.in','vgrids.invpvs']
+    for line in files:
+        copyfile(line,iterdir+'/'+line)
 
     with open(invinput,'r') as fp:
         data = fp.readlines()
@@ -113,18 +121,26 @@ while ITER<=NI:
 
     if(JOINT==0 or JOINT==2):
       os.system(frech)
-      #os.system(fmm+' > '+diagnos)
-      reload(para)
-      os.system('cp %s %s' % (ttim, mtrav))
+      if 'para' in sys.modules:
+         reload(para)
+      else:
+	 import para
+      copyfile(ttim,mtrav)
       os.system(resid+'>> '+resout)
     if(JOINT==1 or (JOINT==2 and velinv ==1)):
       os.system(surfdirect+' > '+diagnossurf)
-      os.system('cp %s %s' % (ttimessurf, mtravsurf))
+      copyfile(ttimessurf, mtravsurf)
     ITER=ITER+1
     COUNT=ITER
 
     with open(itn, 'w') as fp:
         fp.write(str(COUNT))
 
+copyfile('vgrids.in',runid+'/vgrids.in')
+copyfile('vgrids.invpvs',runid+'/vgrids.invpvs')
+copyfile('tomo3d.in',runid+'/tomo3d.in')
+copyfile('invert3d.in',runid+'/invert3d.in')
+copyfile('residuals.dat',runid+'/residuals.dat')
 end_time = datetime.now()
 print 'Duration: {}'.format(end_time-start_time)
+copyfile('screenout.txt',runid+'/screenout.txt')
