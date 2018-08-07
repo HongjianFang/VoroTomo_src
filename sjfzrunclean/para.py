@@ -1,5 +1,5 @@
 # be careful about the different paremeter to invert. the index might be wrong. Now this set is suit for Vp Vs and hypocent at the same time
-nthread = 24 
+nthread = 16
 import numpy as np
 import os
 for ii in range(nthread):

@@ -157,7 +157,7 @@ character (len=40) cdum
 !integer flex,choosedsrc
 real(kind=i5) radall,latall,lonall
 integer columnnorm
-!real(kind=i5) dampratio
+real(kind=i5) dampratio
 
 ! define bounds for source locations
 real(kind=i5) boundsr,boundslat,boundslon
@@ -281,7 +281,7 @@ read(10,*)surfweight,stdratio
 read(10,*)vpvs
 read(10,*)boundsr,boundslat,boundslon
 read(10,*)columnnorm
-!read(10,*)dampratio
+read(10,*)dampratio
 !read(10,*)flex
 1 FORMAT(a26)
 CLOSE(10)
@@ -1225,6 +1225,7 @@ ENDDO
 mean = sum(dtrav(ntr-ntrsurf+1:ntr))/(ntrsurf)/surfweight
 std_surf = sqrt(sum((dtrav(ntr-ntrsurf+1:ntr))**2)/(ntrsurf)-mean**2)/surfweight
 write(*,'(a,f10.1,f10.1)'),' mean,std_devs for surface waves after weighting:', 1000*mean, 1000*std_surf
+write(*,'(a,f10.1)'),' weight for surface wave data: ',surfweight 
 DO i=ntr-ntrsurf+1,ntr
 !dtrav(i)=dtrav(i)*dataweight(i)
 dmod(i) = dmod(i)*dataweight(i)
@@ -1234,7 +1235,7 @@ endif
 
 mean = sum(dtrav)/(ntr)
 std_surf = sqrt(sum((dtrav)**2)/ntr-mean**2)
-print*,'weighted rms',std_surf
+write(*,'(a,f7.4)'),' weighted rms',std_surf
 
 jstep = 0
 do m = 1,ntr
@@ -1325,7 +1326,8 @@ is2=0
 IF(nvpi.GT.0)THEN
   DO i=1,nvgi
 !hidden bug, be careful with the following line with 2 more layers
-    if (mod(i,2)==0) etav = etav*3.0
+    !if (mod(i,2)==0) etav = etav*3.0
+    if (mod(i,2)==0) etav = etav*dampratio
     DO k=1,nvnp(idvg(i),idvt(i))
       DO l=1,nvnt(idvg(i),idvt(i))
         DO m=1,nvnr(idvg(i),idvt(i))
@@ -1468,6 +1470,8 @@ enddo
 do i=1,npi
   norm(i) = sqrt(norm(i)/m)
 enddo
+! pay attention here, 0.1
+norm = norm + 0.1*sum(norm)/npi
 
 ! normilize each column to use a single damping
 if(columnnorm==1) then
@@ -1482,8 +1486,8 @@ endif
     dm = 0
     atol = 1e-3
     btol = 1e-3
-    conlim = 200
-    itnlim = 800
+    conlim = 100
+    itnlim = 400
     istop = 0
     anorm = 0.0
     acond = 0.0
@@ -1499,11 +1503,11 @@ endif
 !print*,'-----------------------------------------------------'
 print*,'iteration:',invstep
 !print*,'min. and max. dws',minval(norm_dws),maxval(norm_dws)
-print*,'min. and max. dws',minval(norm),maxval(norm)
+write(*,'(a f7.3 f7.3)'),' min. and max. dws',minval(norm),maxval(norm)
     call LSMR(m, l, leniw, lenrw,iw,rw,dtrav, damp,&
       atol, btol, conlim, itnlim, localSize, nout,&
       dm, istop, itn, anorm, acond, rnorm, arnorm, xnorm)
-print*,'damp is:',damp,' lsmr finished with condition number: ',acond
+write(*,'(a,f7.1,a,f7.1)')' damp is:',damp,' lsmr finished with condition number: ',acond
     dm = -dm/1000
 if(columnnorm==1) then
     do i = 1,npi
@@ -1526,17 +1530,17 @@ endif
     close(nout)
 if (pvi>0) then
 write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
-write(*,*) 'min. and max. velocity variation P and S', minval(dm(1:nnode)),maxval(dm(1:nnode)), &
-                minval(dm(nnode+1:nvpi)),maxval(dm(nnode+1:nvpi))
+write(*,'(a f7.3 f7.3)') ' min. and max. velocity variation P ', minval(dm(1:nnode)),maxval(dm(1:nnode)) 
+write(*,'(a f7.3 f7.3)') ' min. and max. velocity variation S (Vp/Vs)',minval(dm(nnode+1:nvpi)),maxval(dm(nnode+1:nvpi))
 endif
 if(psi>0) then
-write(*,*) 'min. and max. srcs location variation: rad(km)', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
+write(*,'(a f7.3 f7.3)') ' min. and max. srcs location variation: rad(km)', minval(dm(nvpi+nipi+1:nvpi+nipi+nspi)),&
                 maxval(dm(nvpi+nipi+1:nvpi+nipi+nspi))
-write(*,*) 'min. and max. srcs location variation: lat(km)', minval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi)),&
+write(*,'(a f7.3 f7.3)') ' min. and max. srcs location variation: lat(km)', minval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi)),&
                 maxval(dm(nvpi+nipi+nspi+1:nvpi+nipi+2*nspi))
-write(*,*) 'min. and max. srcs location variation: lon(km)', minval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi)),& 
+write(*,'(a f7.3 f7.3)') ' min. and max. srcs location variation: lon(km)', minval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi)),& 
                 maxval(dm(nvpi+nipi+2*nspi+1:nvpi+nipi+3*nspi))
-write(*,*) 'min. and max. srcs location variation: stp(s)', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
+write(*,'(a f7.3 f7.3)') ' min. and max. srcs location variation: stp( s)', minval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi)),&
                 maxval(dm(nvpi+nipi+3*nspi+1:nvpi+nipi+4*nspi))
 !print*,'-----------------------------------------------------'
 endif
@@ -1614,7 +1618,7 @@ IF(pvi.EQ.1)THEN
          !ENDIF
          enddo
          enddo
-        print*,'min and max Vp/Vs:',minval(mc(1:nnode)/mc(nnode+1:nvpi)),maxval(mc(1:nnode)/mc(nnode+1:nvpi))
+        write(*,'(a,f7.3,f7.3)'),' min. and max. Vp/Vs:',minval(mc(1:nnode)/mc(nnode+1:nvpi)),maxval(mc(1:nnode)/mc(nnode+1:nvpi))
 
 
   DO i=1,nvgt

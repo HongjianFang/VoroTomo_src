@@ -20,19 +20,19 @@ propgrid.in                 c: File containing propagation grid parameters
 0.07                        c: Minimum distance between interfaces (km)
 2.0                         c: Minimum permitted velocity (km/s)
 0                           c: Remove mean from predicted teleseisms (0=no,1=yes)
-1 5.0 3.2
+1 5.0 0.03
 0 0.1 0.1
-1 2.0 2.5
+1 0.01 0.1
 30                          c: Subspace dimension (max=50)
-50.0                       c: Global damping factor (epsilon)
+12.0                       c: Global damping factor (epsilon)
 0                           c: Apply second derivative smoothing (0=no,1=yes)
 1.0                         c: Global smoothing factor (eta)
 6371.0                      c: Earth radius in km
 2
 0			    c: inversionschme(1:subspace,0:lsmr)
-1.0 0.5			    c: thresholdbody,thresholdsurf (weight the data res)
-0.4 0.1			    c: surfeight: wt_body/wt_surf| stdratio: sig_body/sig_surf
+2.0 1.0			    c: thresholdbody,thresholdsurf (weight the data res)
+0.5 0.1			    c: surfeight: wt_surf/wt_body| stdratio: sig_body/sig_surf
 1			    c: vpvs(1:vp & vp/vs, 0:vp,vs)
 4.0 0.1 0.1                 c: bounds, boundslat,boundslon
-1		  	    c: columnnorm
-1.0 			    c: dampratio
+0		  	    c: columnnorm
+1.0 			    c: smoothratio (vp/vs more smooth)

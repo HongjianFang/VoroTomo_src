@@ -1,7 +1,9 @@
 cmd = invert3d
 fc = gfortran
-iflag = -I/home/zp/local/include
-lflag = -L/home/zp/local/lib -lnetcdff
+#iflag = -I/home/hfang/tools/netcdf-fortran-4.2/f90
+iflag = -I/home/hfang/tools/netcdf-gfortran/f90
+#lflag = -L/home/hfang/tools/netcdf-fortran-4.2/lib -lnetcdff
+lflag = -L/home/hfang/tools/netcdf-gfortran/lib -lnetcdff
 fflags = -O2 -ffixed-line-length-none -ffloat-store\
 	 -W -fbounds-check -m64 -mcmodel=medium
 fsrcs = lsmrDataModule.f90 lsmrblasInterface.f90 \

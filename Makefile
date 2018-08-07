@@ -6,7 +6,7 @@ svd_objects = svdlib.o
 
 f90comp = ifort
 #fflags = -O2  -traceback -heap-arrays -check all -fp-stack-check
-fflags = -O2
+fflags = -O2 -I./aktimes/ -I/usr/include
 
 %.o : %.f90
 	$(f90comp) $(fflags) -c  $<

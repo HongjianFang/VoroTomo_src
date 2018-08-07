@@ -989,7 +989,8 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        real minthk
 
 	real vpz(nz-1),vsz(nz-1),rhoz(nz-1),depz(nz-1)
-       real*8 pvRc(nx*ny,kmaxRc),pvRg(nx*ny,kmaxRg),pvLc(nx*ny,kmaxLc),pvLg(nx*ny,kmaxLg)
+       !real*8 pvRc(nx*ny,kmaxRc),pvRg(nx*ny,kmaxRg),pvLc(nx*ny,kmaxLc),pvLg(nx*ny,kmaxLg)
+       real*8 pvRc(nx*ny,kmax),pvRg(nx*ny,kmaxRg),pvLc(nx*ny,kmax),pvLg(nx*ny,kmaxLg)
        real*8 sen_vsRc(nx*ny,kmaxRc,nz-1),sen_vpRc(nx*ny,kmaxRc,nz-1)
        real*8 sen_rhoRc(nx*ny,kmaxRc,nz-1)
        real*8 sen_vsRg(nx*ny,kmaxRg,nz-1),sen_vpRg(nx*ny,kmaxRg,nz-1)
@@ -1001,8 +1002,8 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
        real*8 sen_vs(nx*ny,kmax,nz-1),sen_vp(nx*ny,kmax,nz-1)
        real*8 sen_rho(nx*ny,kmax,nz-1)
        real coe_rho(nz-1)
-       real*8 velf(ny*nx)
-	integer kmax1,kmax2,kmax3,count1
+       real*8 velf(ny*nx),velf0(ny*nx)
+	integer kmax1,kmax2,kmax3,count1,count11
        integer igr
        integer iwave
        integer knumi,srcnum
@@ -1028,10 +1029,11 @@ REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
   real :: sparsefrac
   integer :: ncount
   integer :: dall
+  integer :: ig,igroup
 
 
-gdx=5                                                                           
-gdz=5                                                                           
+gdx=8                                                                           
+gdz=8                                                                           
 asgr=1                                                                          
 sgdl=sgdlf                                                                          
 !sgs=5                                                                           
@@ -1097,7 +1099,7 @@ ENDIF
    rbint=0
 !
 ! Allocate memory for node status and binary trees
-!
+!c
 ALLOCATE(nsts(nnz,nnx))
 maxbt=NINT(snb*nnx*nnz)
 ALLOCATE(btg(maxbt))
@@ -1113,6 +1115,9 @@ allocate(fdm(0:nvz+1,0:nvx+1))
 
              if(kmaxRg.gt.0) then
                  iwave=2
+                 igr = 0
+                 call caldispersion(nx,ny,nz,vel,pvRc, &
+                    iwave,igr,kmax,tRg,depz,minthk)
                  igr=1
                  call depthkernel(nx,ny,nz,vel,pvRg,sen_vsRg,sen_vpRg, &
                     sen_rhoRg,iwave,igr,kmaxRg,tRg,depz,minthk)
@@ -1127,6 +1132,9 @@ allocate(fdm(0:nvz+1,0:nvx+1))
 
              if(kmaxLg.gt.0) then
                  iwave=1
+                 igr=0
+                 call caldispersion(nx,ny,nz,vel,pvLc, &
+                    iwave,igr,kmax,tLg,depz,minthk)
                  igr=1
                  call depthkernel(nx,ny,nz,vel,pvLg,sen_vsLg,sen_vpLg, &
                     sen_rhoLg,iwave,igr,kmaxLg,tLg,depz,minthk)
@@ -1188,7 +1196,22 @@ do srcnum=1,nsrcsurf1(knumi)
         sen_vp(:,kmax3+1:kmax,:)=sen_vpLg(:,1:kmaxLg,:)!(:,nt,:)
         sen_rho(:,kmax3+1:kmax,:)=sen_rhoLg(:,1:kmaxLg,:)!(:,nt,:)
         endif
-
+      ! only for Rayleigh wave group velocity, revise this latter for Love wave group velocity
+      if (igrt(srcnum,knumi)==1) then
+         igroup = 2
+       else
+         igroup = 1
+       endif
+       velf0 = velf
+       count11 = count1
+       do ig = 1,igroup
+       if (ig ==2 .and. wavetype(srcnum,knumi) == 2) then
+         velf(1:nx*ny) = pvRc(1:nx*ny,periods(srcnum,knumi))
+       endif
+       if (ig ==2 .and. wavetype(srcnum,knumi) == 1) then
+         velf(1:nx*ny) = pvLc(1:nx*ny,periods(srcnum,knumi))
+       endif
+ 
 call gridder(velf)
    x=scxf(srcnum,knumi)
    z=sczf(srcnum,knumi)
@@ -1374,9 +1397,11 @@ call gridder(velf)
 !
 !  
          do istep=1,nrc1(srcnum,knumi)
+        if (ig == 1) then
       CALL srtimes(x,z,rcxf(istep,srcnum,knumi),rczf(istep,srcnum,knumi),cbst1)
  count1=count1+1
 dsurf(count1)=cbst1
+        endif
 !!-------------------------------------------------------------
 !   ENDIF
 !
@@ -1384,6 +1409,13 @@ dsurf(count1)=cbst1
 !  Calculate Frechet derivatives with the same subroutine
 !  if required.
 !
+            if (igrt(srcnum,knumi) == 0 .or. (ig == 2 .and.igrt(srcnum,knumi) == 1)) then
+        ! a little stupid, remember to change latter
+        if (igrt(srcnum,knumi) == 1) then
+        call gridder(velf0)
+        endif
+        count11=count11+1
+
       CALL rpaths(x,z,fdm,rcxf(istep,srcnum,knumi),rczf(istep,srcnum,knumi))
 !fdm(0:nvz+1,0:nvx+1)
       row=0
@@ -1392,7 +1424,7 @@ dsurf(count1)=cbst1
       nnzero=0.
         do jj=1,nx
         do kk=1,ny
-        if (abs(fdm(jj-1,kk-1))>1.e-5) then
+        if (abs(fdm(jj-1,kk-1))>1.e-3) then
         coe_rho=(1.6612-0.4721*2*vel(jj,ny-kk+1,2:nz)+ &
         0.0671*3*vel(jj,ny-kk+1,2:nz)**2-0.0043*4*vel(jj,ny-kk+1,2:nz)**3+ &
         0.000106*5*vel(jj,ny-kk+1,2:nz)**4)
@@ -1425,13 +1457,13 @@ dsurf(count1)=cbst1
 
 
 !      write(34,*) count1,count(abs(row)>ftol)
-      non_row(count1) = count(abs(row)>ftol)
+      non_row(count11) = count(abs(row)>ftol)
       !print*,nx,ny,nz,nparpi
       !print*,
       !do ii=1,2*nparpi
       !if(abs(row(ii))>ftol) print*,row(ii)
       !enddo
-      write(35,*) dsurf(count1)
+      write(35,*) dsurf(count11)
       if ( n_interfaces == 2 ) then
         count2=0
         do jj = 1,2*nparpi
@@ -1508,11 +1540,20 @@ dsurf(count1)=cbst1
 !              col(nar)=nn
 !		endif
 !		enddo
+      endif
 	    enddo
 
-
-
+IF(asgr.EQ.1)THEN
+   DEALLOCATE (velnb, STAT=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: velnb'
+   ENDIF
+ENDIF
    IF(asgr.EQ.1)DEALLOCATE(ttnr,nstsr)
+ enddo
+
+
+
 
    IF(rbint.EQ.1)THEN
       WRITE(6,*)'Note that at least one two-point ray path'
@@ -1522,12 +1563,6 @@ dsurf(count1)=cbst1
       WRITE(6,*)'that you adjust the dimensions of your grid'
       WRITE(6,*)'to prevent this from occurring.'
    ENDIF
-IF(asgr.EQ.1)THEN
-   DEALLOCATE (velnb, STAT=checkstat)
-   IF(checkstat > 0)THEN
-      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: velnb'
-   ENDIF
-ENDIF
 enddo
 enddo
 deallocate(fdm)
@@ -2532,4 +2567,67 @@ end do
 end 
 
 
+subroutine caldispersion(nx,ny,nz,vel,pvRc, &
+                  iwave,igr,kmaxRc,tRc,depz,minthk)
+        use omp_lib
+        implicit none
+        
+        integer nx,ny,nz
+        real vel(nx,ny,nz*2)
+!        real*8 sen_vpRc(ny*nx,kmaxRc,nz-1),sen_vsRc(ny*nx,kmaxRc,nz-1),sen_rhoRc(ny*nx,kmaxRc,nz-1)
 
+        integer iwave,igr
+        real minthk
+        real depz(nz-1)
+        integer kmaxRc
+        real*8 tRc(kmaxRc)
+        real*8 pvRc(nx*ny,kmaxRc)
+
+
+
+        real vpz(nz-1),vsz(nz-1),rhoz(nz-1)
+!        real*8 dlncg_dlnvs(kmaxRc,nz-1),dlncg_dlnvp(kmaxRc,nz-1),dlncg_dlnrho(kmaxRc,nz-1)
+	    integer mmax,iflsph,mode,rmax
+        integer ii,jj,k,i,nn,kk
+    	integer,parameter::NL=200
+    	integer,parameter::NP=60
+        real*8 cg1(NP),cg2(NP),cga,cgRc(NP)
+    	real rdep(NL),rvp(NL),rvs(NL),rrho(NL),rthk(NL)
+    	real depm(NL),vpm(NL),vsm(NL),rhom(NL),thkm(NL)
+	    real dlnVs,dlnVp,dlnrho
+
+
+        mmax=nz-1
+        iflsph=1
+        mode=1
+        dlnVs=0.01
+        dlnVp=0.01
+        dlnrho=0.01
+
+!$omp parallel &                                                                
+!$omp default(private) &                                                        
+!$omp shared(depz,nx,ny,nz,minthk,dlnvs,dlnvp,dlnrho,kmaxRc,mmax,vel) &  
+!$omp shared(tRc,pvRc,iflsph,iwave,mode,igr) 
+!$omp do
+        do jj=1,nx
+    	do ii=1,ny
+    	vsz(1:nz-1)=vel(jj,ii,nz+2:nz*2)
+        vpz(1:nz-1)=vel(jj,ii,2:nz)
+        ! some other emperical relationship maybe better, 
+    	do k=1,nz-1
+    	rhoz(k)=1.6612*vpz(k) - 0.4721*vpz(k)**2 + &
+               0.0671*vpz(k)**3 - 0.0043*vpz(k)**4 + & 
+               0.000106*vpz(k)**5
+        enddo
+        
+    	call refineGrid2LayerMdl(minthk,mmax,depz,vpz,vsz,rhoz,rmax,rdep,&
+        rvp,rvs,rrho,rthk)
+    	call surfdisp96(rthk,rvp,rvs,rrho,rmax,iflsph,iwave,mode,igr,kmaxRc,&
+        tRc,cgRc)
+    	pvRc((jj-1)*ny+ny-ii+1,1:kmaxRc)=cgRc(1:kmaxRc)
+        !print*,cgRc(1:kmaxRc)
+   	enddo
+    	enddo
+!$omp end do
+!$omp end parallel
+end subroutine
