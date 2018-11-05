@@ -1,0 +1,38 @@
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c This file contains all required input parameters and files for the
+c inversion program "invert3d.f90"
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+vgridsref.in                c: Reference velocity grid
+vgrids.in                   c: Current velocity grid
+interfacesref.in            c: Reference interface grid
+interfaces.in               c: Current interface grid
+sourcesref.in               c: Reference source coords
+sources.in                  c: Current source coordinates
+stimes.dat                  c: Current source time perturbations
+receivers.in                c: Receiver coordinates
+otimes.dat                  c: Observed traveltimes
+mtimes.dat                  c: Model traveltimes
+rtimesnec.dat               c: Reference teleseismic traveltimes
+frechet.in                  c: Frechet derivative parameters
+frechet.dat                 c: Frechet derivatives
+inviter.in                  c: File indicating current inversion step
+propgrid.in                 c: File containing propagation grid parameters
+0.07                        c: Minimum distance between interfaces (km)
+2.0                         c: Minimum permitted velocity (km/s)
+0                           c: Remove mean from predicted teleseisms (0=no,1=yes)
+1 5.0 0.03
+0 0.1 0.1
+1 0.01 0.1
+30                          c: Subspace dimension (max=50)
+12.0                       c: Global damping factor (epsilon)
+0                           c: Apply second derivative smoothing (0=no,1=yes)
+1.0                         c: Global smoothing factor (eta)
+6371.0                      c: Earth radius in km
+2
+0			    c: inversionschme(1:subspace,0:lsmr)
+2.0 1.0			    c: thresholdbody,thresholdsurf (weight the data res)
+0.5 0.1			    c: surfeight: wt_surf/wt_body| stdratio: sig_body/sig_surf
+1			    c: vpvs(1:vp & vp/vs, 0:vp,vs)
+4.0 0.1 0.1                 c: bounds, boundslat,boundslon
+0		  	    c: columnnorm
+1.0 			    c: smoothratio (vp/vs more smooth)
