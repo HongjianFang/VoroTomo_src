@@ -22,7 +22,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c Set up propagation grid file
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 propgrid.in           c: Name of propagation grid file
-34   219  282         c: Number of points in rad lat, long
+34   108  140         c: Number of points in rad lat, long
 1     1               c: Refine factor & no. of local cells
 0.01                  c: Cushion factor for prop grid (<<1)
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -32,13 +32,13 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c Set velocity grid values for layer 1
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-32        32          c: Number of radial grid points (type 1 & 2)
-219       219           c: Number of grid points in theta (N-S)
-282        282        c: Number of grid points in phi (E-W)
+30        30          c: Number of radial grid points (type 1 & 2)
+54        54          c: Number of grid points in theta (N-S)
+70        70          c: Number of grid points in phi (E-W)
 0                     c: Use model (0) or constant gradient (1)
 P                     c: Use P or S velocity model
-sjfz.1d               c: Velocity model (option 0)
-1                     c: Dimension of velocity model (1=1-D,3=3-D)
+sjfz_ng_vpvs.3d               c: Velocity model (option 0)
+3                     c: Dimension of velocity model (1=1-D,3=3-D)
 5.5       3.0         c: Velocity at origin (km/s) (option 1)
 7.5       5.0         c: Velocity at maximum depth (km/s) (option 1)
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

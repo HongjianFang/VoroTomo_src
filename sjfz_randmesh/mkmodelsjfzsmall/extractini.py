@@ -3,6 +3,8 @@
 # writen by Hongjian Fang @USTC Nov 19, 2016
 import numpy as np
 from scipy import interpolate
+#import scipy.ndimage as ndimage
+from scipy import signal#.convolve2d as convolve2d
 
 lon_ori1 = 241.83
 lon_ori2 = 244.62
@@ -10,9 +12,9 @@ lat_ori1 = 32.38
 lat_ori2 = 34.54
 dep1 = -1.5
 dep2 = 30.0
-nlon = 100
-nlat = 80
-ndep = 30
+nlon = 70
+nlat = 54
+ndep = 32
 pltfig = False
 #pltfig = True
 
@@ -52,13 +54,16 @@ velnew = np.zeros((nlon+2,nlat+2,ndep+2))
 velts = np.zeros((nx,ny,ndep+2))
 velnews = np.zeros((nlon+2,nlat+2,ndep+2))
 
+kernel = np.ones(5,)/5
 for j in range(ny):
   for i in range(nx):
-	velt[i,j,:] = np.interp(depnew,dep,vel[i,j,:])
+    tmp = np.interp(depnew,dep,vel[i,j,:])
+    #tmp = np.convolve(tmp,kernel,'same')
+    velt[i,j,:] = tmp
 
 for j in range(ny):
   for i in range(nx):
-	velts[i,j,:] = np.interp(depnew,dep,vels[i,j,:])
+   	velts[i,j,:] = np.interp(depnew,dep,vels[i,j,:])
 
 if pltfig:
   from matplotlib import pyplot as plt
@@ -66,16 +71,21 @@ if pltfig:
   plt.imshow(velt[:,:,5])
   plt.colorbar()
 
+kernel = np.ones((10,10))/100.0
 for k in range(ndep+2):
    xx,yy = np.meshgrid(lat,lon)
    velt1 = velt[:,:,k]
    f = interpolate.interp2d(lat,lon,velt1,kind='linear')
-   velnew[:,:,k] = f(latnew,lonnew)
+   tmp = f(latnew,lonnew)
+   #velnew[:,:,k] = ndimage.gaussian_filter(tmp,sigma=(5,5,0),order=0)
+   velnew[:,:,k] = signal.convolve2d(tmp,kernel,boundary='symm',mode='same')#dimage.gaussian_filter(tmp,sigma=(5,5,0),order=0)
 for k in range(ndep+2):
-   xx,yy = np.meshgrid(lat,lon)
-   velt1 = velts[:,:,k]
-   f = interpolate.interp2d(lat,lon,velt1,kind='linear')
-   velnews[:,:,k] = f(latnew,lonnew)
+  xx,yy = np.meshgrid(lat,lon)
+  velt1 = velts[:,:,k]
+  f = interpolate.interp2d(lat,lon,velt1,kind='linear')
+  tmp = f(latnew,lonnew)
+  #velnews[:,:,k] = f(latnew,lonnew)
+  velnews[:,:,k] = signal.convolve2d(tmp,kernel,boundary='symm',mode='same')#dimage.gaussian_filter(tmp,sigma=(5,5,0),order=0)
 
 if pltfig:
   plt.figure()

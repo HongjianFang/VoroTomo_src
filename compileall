@@ -49,13 +49,15 @@ $F90 -o moddata moddata.f90
 $F90 -o obsdata obsdata.f90
 $F90 -o residuals residuals.f90
 $F90 -o synthdata synthdata.f90
+make clean
+make 
 ##################################################
 #
 # Move all executables to  directory ../bin 
 #
 ##################################################
 mv arraygen frechgen gmtslice ../bin
-mv grid3dg invert3d moddata ../bin
+mv grid3dg moddata ../bin
 mv obsdata residuals synthdata ../bin
 ##################################################
 #
@@ -64,11 +66,14 @@ mv obsdata residuals synthdata ../bin
 # input file to ../sources/inputfiles
 #
 ##################################################
+#make fm3d
+#make clean
 cd ..
-make fm3d
-make clean
-mv fm3d ../bin
-cp mode_set.in ./source/inputfiles
+make -f Makefile.gfortran.mit clean
+make -f Makefile.gfortran.mit 
+
+#mv fm3d ../bin
+#cp mode_set.in ./source/inputfiles
 ##################################################
 #
 # Enter subdirectory "aktimes" and compile programs
@@ -88,6 +93,6 @@ make clean
 ##################################################
 cp ak135.tbl ak135.hed ../source/inputfiles
 ##################################################
-cd ../..
+cd ..
 echo " "
 echo "Compilation complete"

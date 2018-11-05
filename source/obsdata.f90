@@ -25,6 +25,7 @@ REAL :: rlat,rlon,rdep,tt,tterr
 CHARACTER (LEN=10) :: phase
 CHARACTER (LEN=40) :: ifiles,ifiler,ofiles,ofiler,ofilesd
 CHARACTER (LEN=40) :: ifilevg,ifilerd,ofilet,cdum
+integer staidx,srcidx
 !
 ! nisf = Number of input source files
 ! ns = Number of sources
@@ -219,7 +220,7 @@ DO i=1,nisf
          DO k=1,nrif
             riter=riter+1
             IF(extt.EQ.1)THEN
-               READ(80,*)rlat,rlon,rdep,tt,tterr
+               READ(80,*)rlat,rlon,rdep,tt,tterr,srcidx,staidx
             ELSE
                READ(80,*)rlat,rlon,rdep
             ENDIF
@@ -228,7 +229,7 @@ DO i=1,nisf
             WRITE(60,*)siter
             WRITE(60,*)pathidr(jj)
             IF(extt.EQ.1)THEN
-               WRITE(70,*)riter,siter,pathidr(jj),nval,tt,tterr
+               WRITE(70,*)riter,siter,pathidr(jj),nval,tt,tterr,srcidx,staidx
             ENDIF
          ENDDO
          CLOSE(80)

@@ -17,4 +17,4 @@ $(cmd):$(objs)
 	$(fc) $(fflags) $(iflag) -c $< -o $@
 
 clean:
-	rm *.o *.mod $(cmd)
+	rm *.o $(cmd)

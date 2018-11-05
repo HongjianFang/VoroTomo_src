@@ -765,7 +765,11 @@ ENDIF
 !
 nnfd = 0
 ntr = 0
+if(nvgi == 2) then
 nnode = nvpi/2
+else
+nnode = nvpi
+endif
 cnt1 = 0
 if(surfjoint==0.or.surfjoint==2) then
 OPEN(UNIT=10,FILE=otfile,STATUS='old')
@@ -1293,6 +1297,7 @@ endif
 else 
 ! call lsmr instead of subspace to solve Ax = b
 ! first smooth velocity and interface grids if both are included in the inversion
+write(*,*) 'no. of vel/interfaces/sources:', nvpi,nipi,nspi
 allocate(iw(2*(nnfd+9*npi)+1),stat=checkstat)
 if(checkstat>0) stop 'error allocating iw'
 allocate(rw(nnfd+9*npi),stat=checkstat)
@@ -1456,12 +1461,15 @@ norm_dwsb = 0
 do j = 1, jstep_tmpb
 norm_dwsb(iw(1+jstep+j)) = norm_dwsb(iw(1+jstep+j))+abs(rw(j))
 enddo
+print*,'col max:',maxval(iw(1+jstep+1:jstep+1+jstep_tmp))
 norm_dwss = 0
 do j = jstep_tmp-jstep_tmpb+1, jstep_tmp
 norm_dwss(iw(1+jstep+j)) = norm_dwss(iw(1+jstep+j))+abs(rw(j))
 enddo
+print*,'col max:',maxval(iw(1+jstep+jstep_tmp-jstep_tmpb+1:1+jstep+jstep_tmp))
 
 
+if(columnnorm==1) then
 norm = 0
 do i=1,jstep
   norm(iw(1+jstep+i)) = norm(iw(1+jstep+i)) + rw(i)**2
@@ -1474,7 +1482,6 @@ enddo
 norm = norm + 0.1*sum(norm)/npi
 
 ! normilize each column to use a single damping
-if(columnnorm==1) then
 do i = 1,jstep
   rw(i) = rw(i)/norm(iw(1+jstep+i))
 enddo
@@ -1618,7 +1625,7 @@ IF(pvi.EQ.1)THEN
          !ENDIF
          enddo
          enddo
-        write(*,'(a,f7.3,f7.3)'),' min. and max. Vp/Vs:',minval(mc(1:nnode)/mc(nnode+1:nvpi)),maxval(mc(1:nnode)/mc(nnode+1:nvpi))
+        !write(*,'(a,f7.3,f7.3)'),' min. and max. Vp/Vs:',minval(mc(1:nnode)/mc(nnode+1:nvpi)),maxval(mc(1:nnode)/mc(nnode+1:nvpi))
 
 
   DO i=1,nvgt
