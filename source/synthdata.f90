@@ -67,6 +67,7 @@ DO i=1,maxiter
    nr=nr+1
 ENDDO
 CLOSE(10)
+print*,nr
 OPEN(UNIT=10,FILE=ifile,STATUS='old')
 !OPEN(UNIT=20,FILE=ofile,STATUS='unknown')
 !

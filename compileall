@@ -68,10 +68,19 @@ mv obsdata residuals synthdata ../bin
 ##################################################
 #make fm3d
 #make clean
-cd ..
+cd ../fm3d_src
 make -f Makefile.gfortran.mit clean
 make -f Makefile.gfortran.mit 
+cd aktimes
+make all
+make clean
+./remodl
+./setbrn
+#cp ak135.tbl ak135.hed ../source/inputfiles
 
+cd ../surfdirect
+make clean
+make
 #mv fm3d ../bin
 #cp mode_set.in ./source/inputfiles
 ##################################################
@@ -80,18 +89,12 @@ make -f Makefile.gfortran.mit
 # for generating traveltime tables
 #
 ##################################################
-cd aktimes
-make all
-make clean
-./remodl
-./setbrn
 ##################################################
 #
 # Copy output binary traveltime tables to
 # ../../source/inputfiles
 #
 ##################################################
-cp ak135.tbl ak135.hed ../source/inputfiles
 ##################################################
 cd ..
 echo " "
