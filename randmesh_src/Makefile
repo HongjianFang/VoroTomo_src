@@ -1,9 +1,11 @@
 cmd1 = generatemesh 
 cmd2 = subspaceproj
+cmd3 = subspaceproj_rtt
 #cmd3 = tv_backproj
 cmd4 = backproj_ind
 #cmd5 = genratetruemod 
 cmd6 = combine_sub
+cmd7 = relocation
 FC = gfortran
 #FC = ifort
 
@@ -17,14 +19,19 @@ fflag1 = -g2
 #fflag2 = -O2 -f#openmp 
 f90_1 = generatemesh.f90
 f90_2 = lsmrDataModule.f90 lsmrblasInterface.f90 \
-				lsmrblas.f90 lsmrModule.f90 aprod_new.f90 subspaceproj.f90 
+	lsmrblas.f90 lsmrModule.f90 aprod_new.f90 subspaceproj.f90 
+
+f90_3 = lsmrDataModule.f90 lsmrblasInterface.f90 \
+	lsmrblas.f90 lsmrModule.f90 aprod_new.f90 subspaceproj_rtt.f90 
 #f90_3 =	lsmrDataModule.f90 lsmrblasInterface.f90 \
 				lsmrblas.f90 lsmrModule.f90 aprod_new.f90 tv_backproj.f90
 f90_4 = aprod_new.f90 backproj_ind.f90
 #f90_5 = generatetruemod.f90
 f90_6 = combine_sub.f90
+f90_7 = lsmrDataModule.f90 lsmrblasInterface.f90 \
+	lsmrblas.f90 lsmrModule.f90 aprod_new.f90 relocation.f90 
 
-all:${cmd1} ${cmd2} ${cmd4} ${cmd6}
+all:${cmd1} ${cmd2} ${cmd3} ${cmd4} ${cmd6} ${cmd7}
 
 objs = $(f90_1:%.f90=%.o)
 ${cmd1}:${objs}
@@ -36,7 +43,7 @@ ${cmd2}:${objs}
 
 objs = $(f90_3:%.f90=%.o)
 ${cmd3}:${objs}
-	${FC} $^ -o $@ ${fflag1} 
+	${FC} $^ -o $@ ${lflag} ${lflag_sub} ${iflag} ${fflag2} 
 
 objs = $(f90_4:%.f90=%.o)
 ${cmd4}:${objs}
@@ -49,6 +56,10 @@ ${cmd5}:${objs}
 objs = $(f90_6:%.f90=%.o)
 ${cmd6}:${objs}
 	${FC} $^ -o $@ ${lflag} ${fflag1}
+
+objs = $(f90_7:%.f90=%.o)
+${cmd7}:${objs}
+	${FC} $^ -o $@ ${lflag} ${lflag_sub} ${iflag} ${fflag2} 
 
 %.o:%.f90
 	${FC} $(fflag2) $(iflag) -c $< -o $@

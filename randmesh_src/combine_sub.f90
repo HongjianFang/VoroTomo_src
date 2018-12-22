@@ -26,6 +26,7 @@ real,dimension(:),allocatable:: locmean,locall,stack!,loc(nloc),stdloc(nloc)
 !INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: paths,patht
 real,parameter::pi=3.141592654,earthr=6371
 integer ii,j
+integer velloc
 
 integer idm1,idm2,idm3,idm4,nloc_sub,ndata,sloc
 real fdm6,fdm5
@@ -47,7 +48,10 @@ open(10,file='VoroTomo.in')
   read(10,*) 
   read(10,*) 
   read(10,*) 
+  read(10,*) 
+  read(10,*) velloc 
   close(10)
+  print*,velloc
 
   call getarg(1,arg)
   read(arg,'(i4)') numfiles
@@ -71,6 +75,7 @@ stdvel = stdvel+vel**2
 enddo
 velmean = velmean/numfiles
 stdvel = sqrt(stdvel/numfiles-velmean**2)
+print*,maxval(velmean),minval(velmean)
 
 idx = 0
 open(10,file='vgrids.in')
@@ -167,8 +172,10 @@ endif
 close(10)
 
 print*,'finishing combing subproj'
+stop
 
-!print*,nloc
+!!print*,nloc
+if (velloc==1) then
 allocate(locmean(nloc),locall(nloc),stack(nloc))
 locmean = 0
 ns = nloc/4
@@ -191,15 +198,9 @@ close(10)
 !print*, nloc_sub
 locall = 0
 do ii =1,nloc_sub
-sloc = eloc(ii)+1
-stack(sloc)=stack(sloc)+1
-stack(ns+sloc)=stack(ns+sloc)+1
-stack(2*ns+sloc)=stack(2*ns+sloc)+1
-stack(3*ns+sloc)=stack(3*ns+sloc)+1
-locall(sloc) = loc(ii) 
-locall(ns+sloc) = loc(nloc_sub+ii) 
-locall(2*ns+sloc) = loc(2*nloc_sub+ii) 
-locall(3*ns+sloc) = loc(3*nloc_sub+ii) 
+sloc = eloc(ii)
+stack(4*sloc+1:4*sloc+4)=stack(4*sloc+1:4*sloc+4)+1
+locall(4*sloc+1:4*sloc+4) = loc((ii-1)*4+1:ii*4) 
 enddo
 locmean = locmean+locall
 deallocate(loc,eloc)
@@ -228,14 +229,14 @@ read(10,*) ndata
 write(11,*) ndata
 do ii = 1,ndata
 read(10,*) rad,lat,lon
-drad = locmean(sourceidx(ii)+1)
+drad = locmean(4*sourceidx(ii)+1)
 if (abs(drad) > 1.0) drad = drad/abs(drad)*1.0
 rad = rad-drad!locmean(sourceidx(ii))
-dlat = locmean(ns+sourceidx(ii)+1)*180/(pi*(earthr-rad))
+dlat = locmean(4*sourceidx(ii)+2)*180/(pi*(earthr-rad))
 if (abs(dlat) > 0.05) dlat = dlat/abs(dlat)*0.05
 lat = lat+dlat
 !lat = lat+locmean(ns+sourceidx(ii))*180/(pi*(earthr-rad))
-dlon = locmean(2*ns+sourceidx(ii)+1)*180/(pi*(earthr-rad))
+dlon = locmean(4*sourceidx(ii)+3)*180/(pi*(earthr-rad))
 dlon=dlon/cos(lat*pi/180)
 if (abs(dlon) > 0.05) dlon = dlon/abs(dlon)*0.05
 lon = lon+dlon
@@ -256,5 +257,6 @@ deallocate(velmean,stdvel,vel,velref)
 deallocate(velmean3d,stdvel3d)
 deallocate(locmean,locall,stack)!,loc(nloc),stdloc(nloc)
 print*,'finishing all'
+endif
 
 end program

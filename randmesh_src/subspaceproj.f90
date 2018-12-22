@@ -61,6 +61,7 @@ program subspaceproj
   integer checkstat
   integer*8 jstep
   integer idm
+  integer columnscale
 
   character(len=32) arg
 
@@ -78,6 +79,7 @@ program subspaceproj
   read(10,*) damploc
   read(10,*) spfrac,ftol
   read(10,*) weightornot
+  read(10,*) columnscale
   close(10)
   !weightornot = 0
   mdim = nlat*nlon*nrad
@@ -172,8 +174,10 @@ program subspaceproj
   dres = 0
   open(10,file='otimes.dat')
   read(10,*)ndbody
+  allocate(weight(ndbody),stat=checkstat)
+  if(checkstat>0) stop 'error allocating col'
   do ii = 1,ndbody
-    read(10,*) idm,idm,idm,idm,dobs(ii)
+    read(10,*) idm,idm,idm,idm,dobs(ii),weight(ii)
   enddo
   close(10)
   open(10,file='mtimes.dat')
@@ -214,7 +218,8 @@ program subspaceproj
     read(10,*) choose(ii),eqidx(ii),phasebody(ii)
   enddo
   close(10)
-  nlocnew = (maxval(eqidx)+1)*4
+  !nlocnew = (maxval(eqidx)+1)*4
+  nlocnew = 0
   allocate(xunknown(subrow2+nlocnew),norm(subrow2+nlocnew),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
   !do jj = 1,ndbody
@@ -281,33 +286,33 @@ program subspaceproj
 
   !do ii = 1,nd
   do ii = 1,nchoose
-    dres(ii)=dobs(choose(ii))-dsyn(choose(ii))
+    !dres(ii)=dobs(choose(ii))-dsyn(choose(ii))
+    dres(ii)=dsyn(choose(ii))-dobs(choose(ii))
   enddo
   if (joint==1) then
   do ii = 1,nchoose_surf
-    dres(nchoose+ii)=(dobs(ndbody+choose_surf(ii))-dsyn(ndbody+choose_surf(ii)))*weight_surf
+  dres(nchoose+ii)=(dsyn(ndbody+choose_surf(ii))-dobs(ndbody+choose_surf(ii)))*weight_surf
   enddo
   endif
   nd = nchoose+nchoose_surf
   print*,nchoose,nchoose_surf
 
-  if(weightornot==1) then
-    allocate(weight(nd),stat=checkstat)
-  if(checkstat>0) stop 'error allocating col'
-  weight(1:nd) = 1.0/(1+0.05*exp(dres(1:nd)**2*0.1))
-    do jj = 1,nd!jstep
+  !if(weightornot==1) then
+  !  allocate(weight(nd),stat=checkstat)
+  !if(checkstat>0) stop 'error allocating col'
+  !weight(1:nd) = 1.0/(1+0.05*exp(dres(1:nd)**2*0.1))
+    do jj = 1,nchoose!jstep
       start = sum(nrow_choose(1:jj-1))
       do ii = 1,nrow_choose(jj)
-      rw(start+ii) = rw(start+ii)*weight(jj)
+      rw(start+ii) = rw(start+ii)*weight(choose(jj))
     enddo
     enddo
-    print*, 'db'
-    do ii = 1,nd
-      dres(ii) = dres(ii)*weight(ii) 
+    do ii = 1,nchoose
+      dres(ii) = dres(ii)*weight(choose(ii)) 
     enddo
     deallocate(weight)
     print*,'finishing weighting'
-  endif
+  !endif
  
   !if (synthetic == 1) then
   !  open(10,file='truemod.bin',form='unformatted',access='direct',recl=4*mdim)
@@ -499,6 +504,7 @@ program subspaceproj
 
     ! add relocation,leniw-->lenrw
     Gh = 0
+    if (nlocnew>0) then
     do jj = 1,nchoose
       start = sum(nrow_choose(1:jj-1))
       do ii = 1,nrow_choose(jj)
@@ -513,14 +519,14 @@ program subspaceproj
       do ii = 1,nchoose
         !choose(ii),eqidx(ii)
         iwgp(nzid+1:nzid+4) = ii
-        !colgp(nzid+1) = subrow2+(eqidx(ii))*4+1
-        !colgp(nzid+2) = subrow2+(eqidx(ii))*4+2
-        !colgp(nzid+3) = subrow2+(eqidx(ii))*4+3
-        !colgp(nzid+4) = subrow2+(eqidx(ii))*4+4
-        colgp(nzid+1) = subrow2+(eqidx(ii))+1
-        colgp(nzid+2) = subrow2+nlocnew/4+(eqidx(ii))+1
-        colgp(nzid+3) = subrow2+2*nlocnew/4+(eqidx(ii))+1
-        colgp(nzid+4) = subrow2+3*nlocnew/4+(eqidx(ii))+1
+        colgp(nzid+1) = subrow2+(eqidx(ii))*4+1
+        colgp(nzid+2) = subrow2+(eqidx(ii))*4+2
+        colgp(nzid+3) = subrow2+(eqidx(ii))*4+3
+        colgp(nzid+4) = subrow2+(eqidx(ii))*4+4
+        !colgp(nzid+1) = subrow2+(eqidx(ii))+1
+        !colgp(nzid+2) = subrow2+nlocnew/4+(eqidx(ii))+1
+        !colgp(nzid+3) = subrow2+2*nlocnew/4+(eqidx(ii))+1
+        !colgp(nzid+4) = subrow2+3*nlocnew/4+(eqidx(ii))+1
         rwgp(nzid+1:nzid+4) = Gh(ii,:)
         nzid = nzid+4
       enddo
@@ -533,6 +539,7 @@ program subspaceproj
       enddo
       dres(nchoose+nchoose_surf+1:nchoose+nchoose_surf+nlocnew) = 0
       nd = nd+nlocnew
+      endif
 
 
     iwgp(nzid+1:2*nzid) = colgp
@@ -578,18 +585,20 @@ program subspaceproj
   !endif
 
 	!scaling
+        if(columnscale == 1) then
 	norm = 0
     do ii=1,nzid
 	norm(iwgp(ii+nzid)) = norm(iwgp(ii+nzid))+rwgp(ii)**2
     enddo
 
-    do ii =1,subrow
+    do ii =1,subrow2+nlocnew
 	norm(ii) = sqrt(norm(ii)/nd+0.01)
     enddo
 
     do ii =1,nzid
 	rwgp(ii) = rwgp(ii)/norm(iwgp(ii+nzid))
     enddo
+    endif
 
     xunknown = 0
     atol = 1e-3
@@ -612,16 +621,20 @@ program subspaceproj
     call LSMR(nd, subrow2+nlocnew, leniwgp, lenrwgp,iwgp,rwgp,dres,damp,&
       atol, btol, conlim, itnlim, localSize,nout,&
       xunknown, istop, itn, anorm, acond,rnorm, arnorm, xnorm)
-   do ii = 1,subrow
+    if (columnscale == 1) then
+   do ii = 1,subrow2
    	xunknown(ii) = xunknown(ii)/norm(ii)
    enddo
+   endif
     !write(*,'(a,f7.1,f7.1,a,f7.1)')' norm range is:',minval(norm),maxval(norm),' lsmr finished with condition number: ',acond
     write(*,'(a,f7.3,f7.3)') 'min and max of xp:',minval(xunknown(1:subrow)),maxval(xunknown(1:subrow))
     if (veltype==1) then
     write(*,'(a,f7.3,f7.3)') 'min and max of xs:',minval(xunknown(subrow+1:2*subrow)),maxval(xunknown(subrow+1:2*subrow))
     endif
+    if (nlocnew>0) then
     write(*,*) 'min and max location perturbation: ',minval(xunknown(subrow2+1:subrow2+nlocnew)),&
             maxval(xunknown(subrow2+1:subrow2+nlocnew))
+    endif
 
 
     ! write out results
@@ -629,13 +642,15 @@ program subspaceproj
     print*, 'writing out results beginning ...'
     write(filename,'("./tempdata/xcoef",i0,"fmtomo_joint.bin")'),inet
     open(10,file=filename,form='unformatted',access='direct',recl=4*subrow2)
-    write(10,rec=1) xunknown(1:subrow2)
+    write(10,rec=1) -xunknown(1:subrow2)
     close(10)
 
+    if(nlocnew>0) then
     write(filename,'("./tempdata/xloc",i0,"fmtomo.bin")'),inet
     open(10,file=filename,form='unformatted',access='direct',recl=4*nlocnew)
     write(10,rec=1) xunknown(subrow2+1:subrow2+nlocnew)
     close(10)
+    endif
 
 !    deallocate(yy,y)
   deallocate(Gh,eqidx,phasebody,phaseboth)
