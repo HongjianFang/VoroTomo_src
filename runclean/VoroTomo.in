@@ -1,0 +1,15 @@
+6371.0 6360.6 1.0   		# earth radial, bottom position, hvratio
+0.6881 8.088e-4        		# lat_s,dlat (rad)
+4.1884 7.124e-4       		# lon_w,dlon (rad)
+0.4194				# drad (km)
+34 44 52			# nlat nlon nrad
+500				# npts
+93 				# randseed (odd, 1~4000)
+7751				# nevents
+0				# velocity type (0: P or S, 1: P and S)
+0				# joint (0:body, 1:both)
+1.0 1.0 			# damp for relocation and vel
+0.1 0.001			# sparsefrac, ftol
+1 1.0				# weight data (0:no, 1:yes)
+1				# columnscaling
+0

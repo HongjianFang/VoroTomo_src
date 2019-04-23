@@ -65,6 +65,7 @@ program tv_backproj
     close(10)
     allocate(S_p(linsize(2)),xcoef(subrow2),C_p(2*linsize(2)))
     write(filename,'("./tempdata/S_p",i0,".bin")'),inet
+    !write(filename,'("./tempdata/S_invp",i0,".bin")'),inet
     open(10,file=filename,form='unformatted',access='direct',recl=4*linsize(2))
     read(10,rec=1) S_p
     close(10)

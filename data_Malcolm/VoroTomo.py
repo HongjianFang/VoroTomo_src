@@ -308,7 +308,8 @@ def run_randmesh(runid,nomesh):
 ##
     #for ii in range(1,numfiles+1):
     #  os.system(generatemesh+ '  '+str(ii) +' >> '+gmeshout)
-    os.system(generatemesh+ '  '+str(nomesh) +' >> '+gmeshout)
+# uncomment this
+    #os.system(generatemesh+ '  '+str(nomesh) +' >> '+gmeshout)
   
   # Now begin a loop to iteratively apply subspace inversion
   # and FMM

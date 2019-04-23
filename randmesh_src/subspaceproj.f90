@@ -12,7 +12,7 @@ program subspaceproj
   real(kind=i5)::spfrac,ftol
   integer:: mdim,mdim2,nlat,nlon,nrad,nloc
   integer:: joint,veltype
-  real::damploc
+  real::damploc,dampvel
   integer nchoose,nchoose_surf
   real(kind=i5) weight_surf
   integer,allocatable,dimension(:):: choose,eqidx,choose_surf,phasebody,phaseboth
@@ -35,7 +35,7 @@ program subspaceproj
   real(kind=i5),allocatable,dimension(:)::rw_p
   integer,allocatable,dimension(:)::iwgp,colgp
   real(kind=i5),allocatable,dimension(:)::rwgp
-  real(kind=i5),allocatable,dimension(:)::dres,weight,dobs,dsyn
+  real(kind=i5),allocatable,dimension(:)::dres,weight,weightthresh,dobs,dsyn
   !real(kind=i5),allocatable,dimension(:,:)::yy,yys
   integer*4 linsize(2)
   integer nlocnew
@@ -44,9 +44,10 @@ program subspaceproj
   integer ii,inet
   integer nzid,nz
   integer subrow,subrow2
-  real,dimension(:),allocatable::norm,xunknown
+  real,dimension(:),allocatable::norm,dws,xunknown,xrandom
   real,allocatable,dimension(:):: x,rrow,rrow_vel!,xaug
   character(len=130) filename
+  real meandws
   integer nnzero
   integer reclen
   !character(len=8) numthreads
@@ -62,6 +63,7 @@ program subspaceproj
   integer*8 jstep
   integer idm
   integer columnscale
+  real threshold0
 
   character(len=32) arg
 
@@ -76,9 +78,9 @@ program subspaceproj
   read(10,*) nloc
   read(10,*) veltype
   read(10,*) joint
-  read(10,*) damploc
+  read(10,*) damploc,dampvel
   read(10,*) spfrac,ftol
-  read(10,*) weightornot
+  read(10,*) weightornot,threshold0
   read(10,*) columnscale
   close(10)
   !weightornot = 0
@@ -94,7 +96,7 @@ program subspaceproj
   !read(arg,'(i4)') subrow
   call getarg(1,arg)
   read(arg,'(i4)') inet
-  if(checkstat>0) stop 'error allocating 1'
+!  if(checkstat>0) stop 'error allocating 1'
 !  CALL get_environment_variable("OMP_NUM_THREADS",numthreads)
 !  if (numthreads=='') then
 !    numth = 1
@@ -157,7 +159,7 @@ program subspaceproj
   if(checkstat>0) stop 'error allocating rw'
   allocate(col(nnfd),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
-  allocate(dres(nd),dobs(nd),dsyn(nd),stat=checkstat)
+  allocate(dres(nd),weightthresh(ndbody),dobs(nd),dsyn(nd),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
 
   allocate(x(subrow),stat=checkstat)
@@ -220,7 +222,7 @@ program subspaceproj
   close(10)
   !nlocnew = (maxval(eqidx)+1)*4
   nlocnew = 0
-  allocate(xunknown(subrow2+nlocnew),norm(subrow2+nlocnew),stat=checkstat)
+  allocate(xunknown(subrow2+nlocnew),xrandom(subrow2+nlocnew),dws(subrow2+nlocnew),norm(subrow2+nlocnew),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
   !do jj = 1,ndbody
   irow = 0
@@ -289,6 +291,7 @@ program subspaceproj
     !dres(ii)=dobs(choose(ii))-dsyn(choose(ii))
     dres(ii)=dsyn(choose(ii))-dobs(choose(ii))
   enddo
+  weightthresh(1:nchoose) = 1.0/(1+0.05*exp(dres(1:nchoose))**2*threshold0)
   if (joint==1) then
   do ii = 1,nchoose_surf
   dres(nchoose+ii)=(dsyn(ndbody+choose_surf(ii))-dobs(ndbody+choose_surf(ii)))*weight_surf
@@ -304,13 +307,13 @@ program subspaceproj
     do jj = 1,nchoose!jstep
       start = sum(nrow_choose(1:jj-1))
       do ii = 1,nrow_choose(jj)
-      rw(start+ii) = rw(start+ii)*weight(choose(jj))
+      rw(start+ii) = rw(start+ii)*weight(choose(jj))*weightthresh(jj)
     enddo
     enddo
     do ii = 1,nchoose
-      dres(ii) = dres(ii)*weight(choose(ii)) 
+      dres(ii) = dres(ii)*weight(choose(ii))*weightthresh(ii) 
     enddo
-    deallocate(weight)
+    deallocate(weight,weightthresh)
     print*,'finishing weighting'
   !endif
  
@@ -346,6 +349,7 @@ program subspaceproj
     allocate(rw_p(linsize(2)),iw_p(2*linsize(2)),stat=checkstat)
     if(checkstat>0) stop 'error allocating col'
     write(filename,'("./tempdata/S_p",i0,".bin")'),inet
+    !write(filename,'("./tempdata/S_p",i0,".bin")'),inet
     open(10,file=filename,form='unformatted',access='direct',recl=4*linsize(2))
     read(10,rec=1) rw_p
     close(10)
@@ -585,6 +589,10 @@ program subspaceproj
   !endif
 
 	!scaling
+	dws = 0
+    do ii=1,nzid
+	dws(iwgp(ii+nzid)) = dws(iwgp(ii+nzid))+abs(rwgp(ii))
+    enddo
         if(columnscale == 1) then
 	norm = 0
     do ii=1,nzid
@@ -603,6 +611,8 @@ program subspaceproj
     xunknown = 0
     atol = 1e-3
     btol = 1e-4
+    !atol = 1e-6
+    !btol = 1e-6
     conlim = 50
     itnlim = 100
     istop = 0
@@ -611,7 +621,7 @@ program subspaceproj
     arnorm = 0.0
     xnorm = 0.0
     localSize = 0
-    damp = 0.0
+    damp = dampvel
     ! using lsmr to solve for the projection coefficients
     print*, 'LSMR beginning ...'
 
@@ -626,6 +636,14 @@ program subspaceproj
    	xunknown(ii) = xunknown(ii)/norm(ii)
    enddo
    endif
+   call slarnv(2,iseed,subrow2,xrandom)
+   meandws = sum(dws)/subrow2
+   do ii = 1,subrow2
+        if(dws(ii)<0.1*meandws) then 
+   	xunknown(ii) = xunknown(ii)+xrandom(ii)
+        endif
+   enddo
+
     !write(*,'(a,f7.1,f7.1,a,f7.1)')' norm range is:',minval(norm),maxval(norm),' lsmr finished with condition number: ',acond
     write(*,'(a,f7.3,f7.3)') 'min and max of xp:',minval(xunknown(1:subrow)),maxval(xunknown(1:subrow))
     if (veltype==1) then

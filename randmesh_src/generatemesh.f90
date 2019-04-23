@@ -65,7 +65,7 @@ program generatemesh
   mdim = nlon*nlat*nrad
   allocate(extractp(mdim),dis(npts))
   allocate(tsum(npts))
-  allocate(S(mdim),S_inv(mdim),C(2*mdim+1))
+  allocate(S(mdim),S_inv(mdim),C(2*mdim))
   allocate(lat(nlat),lon(nlon),radd(nrad))
   idpts = 0
   iseed(1:3) = (/38,62,346/)
@@ -154,10 +154,15 @@ program generatemesh
   !!$omp end do
   !!$omp end parallel
   !C(1) = nzall
-  do ii=1,nzall
-!   idx = count(extractp==C(1+ii))
-   S_inv(ii) = 1.0/tsum(C(ii))
- enddo
+ !do ii=1,nzall
+ !  idx = count(extractp==C(ii))
+ !  S_inv(ii) = 1.0/sqrt(real(idx))
+ !  !S_inv(ii) = 1.0/sqrt(real(tsum(C(ii))))
+ !enddo
+ !do ii=1,npts
+ !print*,tsum(ii),count(extractp==ii)
+ !enddo
+ !print*,sum(tsum)
   S = 1.0
  ! print*,'stop here'
  ! stop
@@ -195,11 +200,11 @@ program generatemesh
 
   !write out projection matrix
   print*,'writing out matrix'
-  inquire(iolength=reclen) S_inv(1:nzall)
-  write(filename,'("./tempdata/S_invp",i0,".bin")'),inet
-  open(34,file=filename,form='unformatted',access='direct',recl=reclen,status='replace')
-  write(34,rec=1)S_inv(1:nzall)
-  close(34)
+ ! inquire(iolength=reclen) S_inv(1:nzall)
+ ! write(filename,'("./tempdata/S_invp",i0,".bin")'),inet
+ ! open(34,file=filename,form='unformatted',access='direct',recl=reclen,status='replace')
+ ! write(34,rec=1)S_inv(1:nzall)
+ ! close(34)
   inquire(iolength=reclen) S(1:nzall)
   write(filename,'("./tempdata/S_p",i0,".bin")'),inet
   open(34,file=filename,form='unformatted',access='direct',recl=reclen,status='replace')

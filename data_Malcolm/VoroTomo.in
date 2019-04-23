@@ -8,7 +8,7 @@
 67579				# nevents
 0				# velocity type (0: P or S, 1: P and S)
 0				# joint (0:body, 1:both)
-0.1 				# damp for relocation
+10.0 2.0 			# damp for relocation
 0.2 0.1				# sparsefrac, ftol
 1				# weight data (0:no, 1:yes)
 0				# columnscaling

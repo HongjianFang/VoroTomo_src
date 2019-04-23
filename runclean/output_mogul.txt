@@ -1,0 +1,80 @@
+GNU Fortran (GCC) 4.8.4
+Copyright (C) 2013 Free Software Foundation, Inc.
+
+GNU Fortran comes with NO WARRANTY, to the extent permitted by law.
+You may redistribute copies of GNU Fortran
+under the terms of the GNU General Public License.
+For more information about these matters, see the file named COPYING
+
+gcc (GCC) 4.8.4
+Copyright (C) 2013 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+/cm/shared/apps/gcc/4.8.4/bin/gfortran
+/cm/shared/apps/gcc/4.8.4/bin/gcc
+rm 3dfmlib.o propagate.o rays.o frechet.o visual.o 3dfm_main.o matchref.o teleseismic.o savetonetcdf.o mod_3dfm.o svdlib.o nn_subsf.o stack.o libsun.o libtau.o ellip.o sphdist.o
+gfortran -c  mod_3dfm.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  3dfmlib.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  propagate.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  rays.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  frechet.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  visual.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  3dfm_main.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  matchref.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  teleseismic.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  savetonetcdf.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  svdlib.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  nn_subsf.f  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+nn_subsf.f:226.29:
+
+     &                     0,ldummy,0,0,0)                              
+                             1
+Warning: Rank mismatch in argument 'inactive' at (1) (rank-1 and scalar)
+gfortran -c  stack.f90  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  libsun.f  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  libtau.f  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  ellip.f  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -c  sphdist.f  -I./aktimes -I/home/hfang/tools/netcdf/netcdf-Fortran/include
+gfortran -o fm3d  3dfmlib.o propagate.o rays.o frechet.o visual.o 3dfm_main.o matchref.o teleseismic.o savetonetcdf.o mod_3dfm.o svdlib.o nn_subsf.o stack.o libsun.o libtau.o ellip.o sphdist.o -L/home/hfang/tools/netcdf/netcdf-Fortran/lib -lnetcdff
+/home/hfang/tools/netcdf/netcdf-Fortran/lib/libnetcdff.so: undefined reference to `memcpy@GLIBC_2.14'
+collect2: error: ld returned 1 exit status
+make: *** [fm3d] Error 1
+/cm/shared/apps/gcc/4.8.4/lib:/cm/shared/apps/gcc/4.8.4/lib64:/home/hfang/tools/netcdf/netcdf-Fortran/lib:/usr/lib64
+sh: ../../bin/fm3d: No such file or directory
+sh: ../../bin/fm3d: No such file or directory
+sh: ../../bin/fm3d: No such file or directory
+sh: ../../bin/fm3d: No such file or directory
+sh: ../../bin/fm3d: No such file or directory
+forrtl: severe (24): end-of-file during read, unit 20, file /pool001/hfang/vorotomo/VoroTomo_src/mogultomo/mtimes.dat
+Image              PC                Routine            Line        Source             
+residuals          0000000000406D1C  Unknown               Unknown  Unknown
+residuals          00000000004246F9  Unknown               Unknown  Unknown
+residuals          0000000000403B7A  Unknown               Unknown  Unknown
+residuals          00000000004031DE  Unknown               Unknown  Unknown
+libc-2.12.so       00002AAAAB18DD1D  __libc_start_main     Unknown  Unknown
+residuals          00000000004030E9  Unknown               Unknown  Unknown
+runid:randmesh_500 no of mesh: 100
+('tomo begin:', datetime.datetime(2019, 4, 22, 23, 36, 21, 233320))
+exiting all fmm3d
+warning: something is wrong
+Traceback (most recent call last):
+  File "VoroTomo_rtt.py", line 413, in <module>
+    run_randmesh(runid,nomesh)  
+  File "VoroTomo_rtt.py", line 310, in run_randmesh
+    calresidual.calresidual()
+  File "/pool001/hfang/vorotomo/VoroTomo_src/mogultomo/calresidual.py", line 41, in calresidual
+    evetime1 = float(pdsyn['i5'][idxst[idx1]])
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/series.py", line 664, in __getitem__
+    return self._get_with(key)
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/series.py", line 696, in _get_with
+    return self.loc[key]
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/indexing.py", line 1373, in __getitem__
+    return self._getitem_axis(maybe_callable, axis=axis)
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/indexing.py", line 1616, in _getitem_axis
+    return self._getitem_iterable(key, axis=axis)
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/indexing.py", line 1115, in _getitem_iterable
+    self._has_valid_type(key, axis)
+  File "/home/hfang/anaconda2/lib/python2.7/site-packages/pandas/core/indexing.py", line 1472, in _has_valid_type
+    key=key, axis=self.obj._get_axis_name(axis)))
+KeyError: u'None of [[20750]] are in the [index]'

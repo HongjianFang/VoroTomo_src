@@ -22,7 +22,7 @@ program subspaceproj
   integer,allocatable,dimension(:)::nzero_id,nrow
   integer,allocatable,dimension(:)::col,iw
   real*4,allocatable,dimension(:)::rw
-  real(kind=i5),allocatable,dimension(:)::dres,weight,dobs,dsyn,phase
+  real(kind=i5),allocatable,dimension(:)::dres,weight,weightthresh,dobs,dsyn,phase
   integer*4 linsize(2)
   integer :: ncid,nzeroid,nrowid,nonid
   integer :: nzerodimid,nrowdimid
@@ -40,6 +40,7 @@ program subspaceproj
   integer*8 jstep
   real damploc
   real rad,lat,lon,drad,dlat,dlon
+  real threshold0
 
 
 integer idm,idm1,idm2,idm3,idm4,nloc_sub,ndata,sloc
@@ -61,7 +62,7 @@ integer irow
   read(10,*) 
   read(10,*) damploc
   read(10,*) 
-  read(10,*) weightornot
+  read(10,*) weightornot,threshold0
   close(10)
   nloc = nloc*4
   !weightornot = 0
@@ -94,7 +95,7 @@ integer irow
   dres = 0
   open(10,file='otimes.dat')
   read(10,*)nd
-  allocate(weight(nd),phase(nd),stat=checkstat)
+  allocate(weight(nd),weightthresh(nd),phase(nd),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
   do ii = 1,nd
     read(10,*) idm,idm,phase(ii),idm,dobs(ii),weight(ii)
@@ -106,6 +107,15 @@ integer irow
   enddo
   close(10)
 
+ do ii = 1,nd
+    !dres(ii)=dobs(ii)-dsyn(ii)
+    !dres(ii)=(dsyn(ii)-dobs(ii))*weight(ii)
+    dres(ii)=(dobs(ii)-dsyn(ii))*weight(ii)
+  enddo
+  weightthresh = 1.0/(1+0.05*exp(dres**2*threshold0))
+  print*,'data residual before weighting: ',sum(dres(1:nd)**2)**0.5
+  dres = dres*weightthresh
+  print*,'data residual after weighting: ',sum(dres(1:nd)**2)**0.5
   !iw = 0
   print*,'reading body wave data begin...'
   rw = 0.
@@ -115,20 +125,15 @@ integer irow
     start = sum(nrow(1:kk-1))
     do ii = 1,nrow(kk)
       jstep = jstep + 1
-      rw(jstep) = nzero(start+ii)*weight(kk)
+      rw(jstep) = nzero(start+ii)*weight(kk)*weightthresh(kk)
       iw(jstep) = kk
       col(jstep) = nzero_id(start+ii)
     enddo
   enddo
+  deallocate(weight,weightthresh)
   print*,'finishing reading. no of nonzeros in the original G for body data: ',jstep
   nzid = jstep
 
- do ii = 1,nd
-    !dres(ii)=dobs(ii)-dsyn(ii)
-    dres(ii)=(dsyn(ii)-dobs(ii))*weight(ii)
-  enddo
-  deallocate(weight)
-  print*,'data residual before weighting: ',sum(dres(1:nd)**2)**0.5
 
     !if(weightornot==1) then
     !allocate(weight(nd),stat=checkstat)
@@ -153,14 +158,14 @@ integer irow
     print*,'finishing weighting,residual norm: ',sum(dres(1:nd)**2)**0.5
   !endif
 
-   do ii = 1,nloc
-   nzid = nzid+1
-   iw(nzid) = nd+ii
-   rw(nzid) = damploc
-   if (mod(ii,4) == 1) rw(nzid) = damploc*5.0
-   col(nzid) = ii
-   dres(nd+ii) = 0
-   enddo
+   !do ii = 1,nloc
+   !nzid = nzid+1
+   !iw(nzid) = nd+ii
+   !rw(nzid) = damploc
+   !if (mod(ii,4) == 1) rw(nzid) = damploc*5.0
+   !col(nzid) = ii
+   !dres(nd+ii) = 0
+   !enddo
 
     print*,nzid,size(col)
     iw(nzid+1:2*nzid) = col
@@ -178,7 +183,7 @@ integer irow
     arnorm = 0.0
     xnorm = 0.0
     localSize = 0
-    damp = 0!damploc
+    damp = damploc
     ! using lsmr to solve for the projection coefficients
     print*, 'LSMR beginning ...'
 
@@ -186,7 +191,7 @@ integer irow
     open(nout,file='lsmrout_reloc.txt')
     print*,nd,nloc
 
-    call LSMR(nd+nloc, nloc, leniw, lenrw,iw,rw,dres,damp,&
+    call LSMR(nd, nloc, leniw, lenrw,iw,rw,dres,damp,&
       atol, btol, conlim, itnlim, localSize,nout,&
       xunknown, istop, itn, anorm, acond,rnorm, arnorm, xnorm)
 

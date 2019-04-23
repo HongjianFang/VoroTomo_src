@@ -40,7 +40,8 @@ program fm3d
   real(kind=dp),dimension(:),allocatable :: nonzero_value
   integer,dimension(:),allocatable :: nonzero_id, non_row
   integer :: nonz
-  real(kind=dp),parameter :: sparsefrac=0.0001
+  real(kind=dp),parameter :: sparsefrac=0.01
+  !real(kind=dp),parameter :: sparsefrac=0.1
   integer :: ncount
   
 
