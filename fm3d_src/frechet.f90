@@ -154,6 +154,7 @@ subroutine ray_partials(ray)
   real(kind=dp) :: gradt_in_perp,gradt_out_perp,gradt_in_par,geo_factor,vel_out,det,vel_in
   real(kind=dp) :: interpolate_velocity,interpolate_interface
   logical       :: rec_region_done,do_interface_partials
+  real,parameter:: ftol=1e-2 !1e-3 works before
 
   ! allocate a temporary array to store the row in the inversion matrix corresponding
   ! to this ray. At the end the zeros will be removed by conversion to CRS
@@ -595,13 +596,13 @@ subroutine ray_partials(ray)
 ! store the partial derivatives for this ray (row in inversion matrix)) in CRS
 
   !ray%n_pdev = count(dtdpar /= 0.0_dp)
-!hidden bug here, e-5 is changable
-  ray%n_pdev = count(abs(dtdpar) > 1.0e-3)
+!hidden bug here, e-5 is changable,used to be 1e-3
+  ray%n_pdev = count(abs(dtdpar) > ftol)
   allocate(ray%pdev(ray%n_pdev),ray%pdev_indx(ray%n_pdev))
   m=0
   do n=1,n_inv_parms
      !if (dtdpar(n) /= 0.0_dp) then
-     if (abs(dtdpar(n)) > 1.0e-3) then
+     if (abs(dtdpar(n)) > ftol) then
         m=m+1
         ray%pdev(m) = dtdpar(n)
         ray%pdev_indx(m)=n

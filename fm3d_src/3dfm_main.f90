@@ -39,8 +39,10 @@ program fm3d
 ! netcdf variables, hongjian fang@ustc 2017/03/02
   real(kind=dp),dimension(:),allocatable :: nonzero_value
   integer,dimension(:),allocatable :: nonzero_id, non_row
-  integer :: nonz
-  real(kind=dp),parameter :: sparsefrac=0.01
+  integer*8 :: nonz
+  !real(kind=dp),parameter :: sparsefrac=0.003
+  real(kind=dp),parameter :: sparsefrac=0.001
+  !real(kind=dp),parameter :: sparsefrac=0.001
   !real(kind=dp),parameter :: sparsefrac=0.1
   integer :: ncount
   
@@ -1123,11 +1125,11 @@ if (no_pp_mode) then
 
                if (ray%valid) then   ! valid ray path found
 
-                  print '(a12,i4,a10,i4,a15,i10,a4,f10.4,2l5)','traced ray',m,'to source',s%id,&
-                       ' from receiver',n,'  t=', ray%receiver_time,ray%diffracted,ray%headwave
+                  !print '(a12,i4,a10,i4,a15,i10,a4,f10.4,2l5)','traced ray',m,'to source',s%id,&
+                  !     ' from receiver',n,'  t=', ray%receiver_time,ray%diffracted,ray%headwave
 
                   k=0
-                  write(11,'(4i6,f15.6,2l5)') n,ray%source%id,m,k,ray%receiver_time, &
+                  write(11,'(i8,3i4,f15.6,2l5)') n,ray%source%id,m,k,ray%receiver_time, &
                        ray%diffracted,ray%headwave
 
                   if (display_mode) call store_ray(ray)
@@ -1139,7 +1141,7 @@ if (no_pp_mode) then
 
                   k=0
                   t_arrival=-1.0_dp               
-                  write(11,'(4i6,f15.6,2l5)') n,ray%source%id,m,k,t_arrival,ray%diffracted,ray%headwave
+                  write(11,'(i8,3i4,f15.6,2l5)') n,ray%source%id,m,k,t_arrival,ray%diffracted,ray%headwave
 
                endif
 
@@ -1166,7 +1168,7 @@ if (no_pp_mode) then
 
                   ray => receiver(n)%ray(m)
                   if (ray%valid) then
-                     print *, 'getting partials for rec',n,'ray',m
+                     !print *, 'getting partials for rec',n,'ray',m
                      call ray_partials(ray)
                   else
                      print *,'no valid ray path for rec',n,'ray',m
@@ -1187,7 +1189,7 @@ if (no_pp_mode) then
             ray%valid = .false.
             k=0
             t_arrival=-1.0_dp               
-            write(11,'(4i6,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
+            write(11,'(i8,3i4,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
 
          endif
 
@@ -1287,11 +1289,11 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
 
                if (ray%valid) then   ! valid ray path found
 
-                  print '(a12,i4,a10,i4,a15,i4,a4,f10.4,2l5)','traced ray',m,'to source',ray%source_id,&
-                       ' from receiver',n,'  t=', ray%receiver_time,ray%diffracted,ray%headwave
+                  !print '(a12,i4,a10,i4,a15,i4,a4,f10.4,2l5)','traced ray',m,'to source',ray%source_id,&
+                  !     ' from receiver',n,'  t=', ray%receiver_time,ray%diffracted,ray%headwave
 
                   k=0
-                  write(11,'(4i6,f15.6,2l5)') n,ray%source_id,m,k,ray%receiver_time,ray%diffracted,ray%headwave
+                  write(11,'(i8,3i4,f15.6,2l5)') n,ray%source_id,m,k,ray%receiver_time,ray%diffracted,ray%headwave
 
                   if (display_mode) call store_ray(ray)
 
@@ -1302,7 +1304,7 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
 
                   k=0
                   t_arrival=-1.0_dp               
-                  write(11,'(4i6,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
+                  write(11,'(i8,3i4,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
 
                endif
 
@@ -1364,7 +1366,7 @@ if (n_receivers > 0 .and. (.not.no_pp_mode)) then
             ray%valid = .false.
             k=0
             t_arrival=-1.0_dp               
-            write(11,'(4i6,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
+            write(11,'(i8,3i4,f15.6,2l5)') n,ray%source_id,m,k,t_arrival,ray%diffracted,ray%headwave
 
          endif
 

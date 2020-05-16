@@ -636,13 +636,13 @@ program subspaceproj
    	xunknown(ii) = xunknown(ii)/norm(ii)
    enddo
    endif
-   call slarnv(2,iseed,subrow2,xrandom)
-   meandws = sum(dws)/subrow2
-   do ii = 1,subrow2
-        if(dws(ii)<0.1*meandws) then 
-   	xunknown(ii) = xunknown(ii)+xrandom(ii)
-        endif
-   enddo
+   !call slarnv(2,iseed,subrow2,xrandom)
+   !meandws = sum(dws)/subrow2
+   !do ii = 1,subrow2
+   !     if(dws(ii)<0.1*meandws) then 
+   !	xunknown(ii) = xunknown(ii)+xrandom(ii)
+   !     endif
+   !enddo
 
     !write(*,'(a,f7.1,f7.1,a,f7.1)')' norm range is:',minval(norm),maxval(norm),' lsmr finished with condition number: ',acond
     write(*,'(a,f7.3,f7.3)') 'min and max of xp:',minval(xunknown(1:subrow)),maxval(xunknown(1:subrow))
