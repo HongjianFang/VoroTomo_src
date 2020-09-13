@@ -14,7 +14,7 @@ program subspaceproj
   integer:: joint,veltype
   real::damploc,dampvel
   integer nchoose,nchoose_surf
-  real(kind=i5) weight_surf
+  real(kind=i5) weight_surf,weight_surf0
   integer,allocatable,dimension(:):: choose,eqidx,choose_surf,phasebody,phaseboth
   real(kind=i5),allocatable,dimension(:,:)::Gh 
   integer irow
@@ -96,6 +96,8 @@ program subspaceproj
   !read(arg,'(i4)') subrow
   call getarg(1,arg)
   read(arg,'(i4)') inet
+!  call getarg(2,arg)
+!  read(arg,'(f5.1)') weight_surf0
 !  if(checkstat>0) stop 'error allocating 1'
 !  CALL get_environment_variable("OMP_NUM_THREADS",numthreads)
 !  if (numthreads=='') then
@@ -250,13 +252,13 @@ program subspaceproj
   allocate(choose_surf(nchoose_surf),stat=checkstat)
   if(checkstat>0) stop 'error allocating col'
   do ii = 1, nchoose_surf
-    read(10,*) choose_surf(ii)
+    read(10,*) choose_surf(ii),weight_surf0
   enddo
   close(10)
   !allocate(yy(nchoose+nchoose_surf,numth),yys(nchoose+nchoose_surf,numth),y(nchoose+nchoose_surf),stat=checkstat)
 
-  !weight_surf = sqrt(nchoose/float(nchoose_surf)*0.004)
-  weight_surf = 0.3
+  !weight_surf0 = 0.03
+  weight_surf = sqrt(nchoose/float(nchoose_surf)*weight_surf0)
   do kk = 1,nchoose_surf
     jj = choose_surf(kk)
     irow = irow+1

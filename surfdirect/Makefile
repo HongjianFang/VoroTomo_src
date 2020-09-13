@@ -1,8 +1,8 @@
 CMD = surfdirect
 FC = gfortran
-iflag = -I/home/hfang/tools/netcdf-gfortran/f90
+iflag = -I/home/hfang/tools/netcdf/netcdf-Fortran/include
 #iflag = 
-lflag = -L/home/hfang/tools/netcdf-gfortran/lib -lnetcdff
+lflag = -L/home/hfang/tools/netcdf/netcdf-Fortran/lib -lnetcdff
 #lflag = libnetcdff.a  #-L. -lnetcdff
 FFLAGS  = -O3 -ffixed-line-length-none -ffloat-store\
 	           -fbounds-check -m64 -mcmodel=medium

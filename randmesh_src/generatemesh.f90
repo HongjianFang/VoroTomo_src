@@ -36,6 +36,7 @@ program generatemesh
   character(len=50) filename
   character(len=32) arg
   integer randseed
+  real cmb0
 
   call getarg(1,arg)
   read(arg,'(i4)') picknet
@@ -91,7 +92,8 @@ program generatemesh
   call slarnv(1,iseed,npts,phi)
   phi = pi/2-(lat_s+phi*(nlat-1)*dlat)
   call slarnv(1,iseed,npts,rad)
-  rad = rad*((nrad-1)*drad)+cmb
+  cmb0 = radial - (radial-cmb)*hvratio
+  rad = rad*((nrad-1)*drad*hvratio)+cmb0
 
 !  rad(1:npts_surf) = rad_surf
 !  rad(npts_surf+1:npts_cmb+npts_surf) = rad_cmb
@@ -118,7 +120,7 @@ program generatemesh
   enddo
 
   do irad = 1,nrad
-    radd(irad) = cmb+(irad-1)*drad
+    radd(irad) = cmb0+(irad-1)*drad*hvratio
     !radd(irad) = radial-cmb+(irad-1)*drad
   enddo
 
@@ -138,7 +140,7 @@ program generatemesh
         xs = radd(irad)*sin(pi/2-lat(ilat))*cos(lon(ilon)) 
         ys = radd(irad)*sin(pi/2-lat(ilat))*sin(lon(ilon)) 
         zs = radd(irad)*cos(pi/2-lat(ilat))
-        dis = (xpts-xs)**2+(ypts-ys)**2+(hvratio*(zpts-zs))**2
+        dis = (xpts-xs)**2+(ypts-ys)**2+(zpts-zs)**2
         mloc = minloc(dis,1)
         !idx = (irad-1)*nlat*nlon+(ilon-1)*nlat+ilat
         idx = (ilon-1)*nlat*nrad+(ilat-1)*nrad+irad
